@@ -1,0 +1,10 @@
+CREATE TABLE otp_tokens (
+  id BIGINT PRIMARY KEY AUTO_INCREMENT,
+  email VARCHAR(150) NOT NULL,
+  otp_code VARCHAR(10) NOT NULL,
+  otp_type ENUM('EMAIL_VERIFY','PASSWORD_RESET') NOT NULL,
+  expires_at TIMESTAMP NOT NULL,
+  is_used BOOLEAN NOT NULL DEFAULT FALSE,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_otp_email_type (email, otp_type)
+);

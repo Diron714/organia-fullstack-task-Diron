@@ -1,0 +1,42 @@
+import axios from "axios";
+import { useAuthStore } from "@/store/authStore";
+import type { ErrorResponse } from "@/types/api.types";
+
+const api = axios.create({
+  baseURL: import.meta.env.VITE_API_BASE_URL,
+  withCredentials: true
+});
+
+api.interceptors.request.use((config) => {
+  const token = useAuthStore.getState().token;
+  if (token) config.headers.Authorization = `Bearer ${token}`;
+  return config;
+});
+
+api.interceptors.response.use(
+  (response) => response,
+  async (error) => {
+    const originalRequest = error.config as { _retry?: boolean; headers: Record<string, string> };
+    if (error.response?.status === 401 && !originalRequest._retry) {
+      originalRequest._retry = true;
+      try {
+        const refresh = await api.post("/auth/refresh");
+        useAuthStore.getState().setToken(refresh.data.accessToken);
+        originalRequest.headers.Authorization = `Bearer ${refresh.data.accessToken}`;
+        return api(originalRequest);
+      } catch {
+        useAuthStore.getState().logout();
+        window.location.href = "/login";
+      }
+    }
+    if (!error.response?.data) {
+      error.response = {
+        ...error.response,
+        data: { message: "Network error. Please try again." } satisfies ErrorResponse
+      };
+    }
+    return Promise.reject(error);
+  }
+);
+
+export default api;

@@ -1,0 +1,12 @@
+CREATE TABLE task_activity (
+  id BIGINT PRIMARY KEY AUTO_INCREMENT,
+  task_id BIGINT NOT NULL,
+  user_id BIGINT NOT NULL,
+  action VARCHAR(100) NOT NULL,
+  old_value VARCHAR(255),
+  new_value VARCHAR(255),
+  field_changed VARCHAR(100),
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_activity_task FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE,
+  CONSTRAINT fk_activity_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);

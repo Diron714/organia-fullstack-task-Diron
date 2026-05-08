@@ -1,0 +1,1 @@
+export function Avatar({ src, alt, fallback }: { src?: string; alt?: string; fallback: string }) { return src ? <img src={src} alt={alt} className="h-9 w-9 rounded-full object-cover" /> : <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary-600 text-xs font-semibold text-white">{fallback}</div>; }
