@@ -1,1 +1,34 @@
-export function Avatar({ src, alt, fallback }: { src?: string; alt?: string; fallback: string }) { return src ? <img src={src} alt={alt} className="h-9 w-9 rounded-full object-cover" /> : <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary-600 text-xs font-semibold text-white">{fallback}</div>; }
+import * as React from "react";
+import { cn } from "@/lib/utils";
+
+export const Avatar = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(
+  ({ className, ...props }, ref) => (
+    <div
+      ref={ref}
+      className={cn("relative flex h-10 w-10 shrink-0 overflow-hidden rounded-full", className)}
+      {...props}
+    />
+  )
+);
+Avatar.displayName = "Avatar";
+
+export const AvatarImage = React.forwardRef<HTMLImageElement, React.ImgHTMLAttributes<HTMLImageElement>>(
+  ({ className, alt = "", ...props }, ref) => (
+    <img ref={ref} alt={alt} className={cn("aspect-square h-full w-full object-cover", className)} {...props} />
+  )
+);
+AvatarImage.displayName = "AvatarImage";
+
+export const AvatarFallback = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(
+  ({ className, ...props }, ref) => (
+    <div
+      ref={ref}
+      className={cn(
+        "flex h-full w-full items-center justify-center rounded-full bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300",
+        className
+      )}
+      {...props}
+    />
+  )
+);
+AvatarFallback.displayName = "AvatarFallback";

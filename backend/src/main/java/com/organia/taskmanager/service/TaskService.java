@@ -21,13 +21,41 @@ public class TaskService {
   private final TaskActivityService activityService;
   private final NotificationService notificationService;
 
-  public TaskService(TaskRepository taskRepository, UserRepository userRepository, TaskMapper taskMapper,
-      TaskActivityService activityService, NotificationService notificationService) {
+  public TaskService(
+      TaskRepository taskRepository,
+      UserRepository userRepository,
+      TaskMapper taskMapper,
+      TaskActivityService activityService,
+      NotificationService notificationService) {
     this.taskRepository = taskRepository;
     this.userRepository = userRepository;
     this.taskMapper = taskMapper;
     this.activityService = activityService;
     this.notificationService = notificationService;
+  }
+
+  public TaskDashboardSummary dashboardSummary(User current) {
+    Specification<Task> base = ownedOrAssigned(current);
+    long total = taskRepository.count(base);
+    long todo =
+        taskRepository.count(
+            Specification.where(base).and((r, q, cb) -> cb.equal(r.get("status"), TaskStatus.TODO)));
+    long inProgress =
+        taskRepository.count(
+            Specification.where(base).and((r, q, cb) -> cb.equal(r.get("status"), TaskStatus.IN_PROGRESS)));
+    long completed =
+        taskRepository.count(
+            Specification.where(base).and((r, q, cb) -> cb.equal(r.get("status"), TaskStatus.COMPLETED)));
+    long overdue =
+        taskRepository.count(
+            Specification.where(base)
+                .and(
+                    (r, q, cb) ->
+                        cb.and(
+                            r.get("dueDate").isNotNull(),
+                            cb.lessThan(r.get("dueDate"), LocalDate.now()),
+                            cb.notEqual(r.get("status"), TaskStatus.COMPLETED))));
+    return new TaskDashboardSummary(total, todo, inProgress, completed, overdue);
   }
 
   public PagedResponse<TaskResponse> list(
@@ -45,15 +73,16 @@ public class TaskService {
     Sort.Direction dir = "asc".equalsIgnoreCase(direction) ? Sort.Direction.ASC : Sort.Direction.DESC;
     Pageable pageable = PageRequest.of(page, size, Sort.by(dir, mapSortField(sort)));
 
-    Specification<Task> spec = (root, query, cb) -> cb.or(
-        cb.equal(root.get("owner").get("id"), current.getId()),
-        cb.equal(root.get("assignedTo").get("id"), current.getId()));
+    Specification<Task> spec = ownedOrAssigned(current);
 
     if (q != null && !q.isBlank()) {
       String term = "%" + q.trim().toLowerCase() + "%";
-      spec = spec.and((root, query, cb) -> cb.or(
-          cb.like(cb.lower(root.get("title")), term),
-          cb.like(cb.lower(root.get("description")), term)));
+      spec =
+          spec.and(
+              (root, query, cb) ->
+                  cb.or(
+                      cb.like(cb.lower(root.get("title")), term),
+                      cb.like(cb.lower(root.get("description")), term)));
     }
 
     if (status != null && !status.isBlank() && !"ALL".equalsIgnoreCase(status)) {
@@ -75,32 +104,45 @@ public class TaskService {
     }
 
     Page<Task> p = taskRepository.findAll(spec, pageable);
-    return new PagedResponse<>(p.getContent().stream().map(this::toResponse).toList(), p.getNumber(), p.getSize(), p.getTotalElements(), p.getTotalPages());
+    return new PagedResponse<>(
+        p.getContent().stream().map(this::toResponse).toList(),
+        p.getNumber(),
+        p.getSize(),
+        p.getTotalElements(),
+        p.getTotalPages());
   }
 
   public TaskResponse create(User current, CreateTaskRequest req) {
     User assigned = null;
-    if (req.assignedToId() != null) {
-      if (current.getRole() != Role.ADMIN) throw new ForbiddenException("Only admin can assign tasks");
-      assigned = userRepository.findById(req.assignedToId()).orElseThrow(() -> new ResourceNotFoundException("Assignee not found"));
+    if (req.assignedToId() != null && current.getRole() == Role.ADMIN) {
+      assigned =
+          userRepository
+              .findById(req.assignedToId())
+              .orElseThrow(() -> new ResourceNotFoundException("Assignee not found"));
     }
 
-    Task task = Task.builder()
-        .title(req.title())
-        .description(req.description())
-        .status(req.status() == null ? TaskStatus.TODO : req.status())
-        .priority(req.priority() == null ? TaskPriority.MEDIUM : req.priority())
-        .dueDate(req.dueDate())
-        .owner(current)
-        .assignedTo(assigned)
-        .createdAt(Instant.now())
-        .updatedAt(Instant.now())
-        .build();
+    Task task =
+        Task.builder()
+            .title(req.title())
+            .description(req.description())
+            .status(req.status() == null ? TaskStatus.TODO : req.status())
+            .priority(req.priority() == null ? TaskPriority.MEDIUM : req.priority())
+            .dueDate(req.dueDate())
+            .owner(current)
+            .assignedTo(assigned)
+            .createdAt(Instant.now())
+            .updatedAt(Instant.now())
+            .build();
 
     task = taskRepository.save(task);
     activityService.log(task, current, "CREATED", null, null, null);
-    if (assigned != null) {
-      notificationService.create(assigned, "Task assigned", "A task was assigned to you", NotificationType.TASK_ASSIGNED, task.getId());
+    if (assigned != null && !assigned.getId().equals(current.getId())) {
+      notificationService.create(
+          assigned,
+          "Task assigned",
+          "A task was assigned to you",
+          NotificationType.TASK_ASSIGNED,
+          task.getId());
     }
     return toResponse(task);
   }
@@ -115,6 +157,9 @@ public class TaskService {
     Task task = taskRepository.findById(id).orElseThrow(() -> new ResourceNotFoundException("Task not found"));
     assertCanModify(current, task);
 
+    TaskStatus previousStatus = task.getStatus();
+    boolean statusChanged = false;
+
     if (req.title() != null) {
       activityService.log(task, current, "UPDATED", "title", task.getTitle(), req.title());
       task.setTitle(req.title());
@@ -125,6 +170,7 @@ public class TaskService {
     }
     if (req.status() != null) {
       activityService.log(task, current, "UPDATED", "status", task.getStatus().name(), req.status().name());
+      statusChanged = !previousStatus.equals(req.status());
       task.setStatus(req.status());
     }
     if (req.priority() != null) {
@@ -132,18 +178,32 @@ public class TaskService {
       task.setPriority(req.priority());
     }
     if (req.dueDate() != null) {
-      activityService.log(task, current, "UPDATED", "dueDate", String.valueOf(task.getDueDate()), String.valueOf(req.dueDate()));
+      activityService.log(
+          task, current, "UPDATED", "dueDate", String.valueOf(task.getDueDate()), String.valueOf(req.dueDate()));
       task.setDueDate(req.dueDate());
     }
 
     task.setUpdatedAt(Instant.now());
     task = taskRepository.save(task);
+
+    if (statusChanged
+        && task.getAssignedTo() != null
+        && !task.getAssignedTo().getId().equals(current.getId())) {
+      notificationService.create(
+          task.getAssignedTo(),
+          "Task updated",
+          "Task status changed",
+          NotificationType.TASK_UPDATED,
+          task.getId());
+    }
+
     return toResponse(task);
   }
 
   public void delete(User current, Long id) {
     Task task = taskRepository.findById(id).orElseThrow(() -> new ResourceNotFoundException("Task not found"));
     assertCanModify(current, task);
+    activityService.log(task, current, "DELETED", null, null, null);
     taskRepository.delete(task);
   }
 
@@ -157,7 +217,12 @@ public class TaskService {
     task = taskRepository.save(task);
 
     if (task.getAssignedTo() != null && !task.getAssignedTo().getId().equals(current.getId())) {
-      notificationService.create(task.getAssignedTo(), "Task updated", "Task status changed", NotificationType.TASK_UPDATED, task.getId());
+      notificationService.create(
+          task.getAssignedTo(),
+          "Task updated",
+          "Task status changed",
+          NotificationType.TASK_UPDATED,
+          task.getId());
     }
     return toResponse(task);
   }
@@ -168,8 +233,17 @@ public class TaskService {
     return activityService.get(task);
   }
 
+  private Specification<Task> ownedOrAssigned(User current) {
+    return (root, query, cb) ->
+        cb.or(
+            cb.equal(root.get("owner").get("id"), current.getId()),
+            cb.equal(root.get("assignedTo").get("id"), current.getId()));
+  }
+
   private String mapSortField(String sort) {
-    if (sort == null || sort.isBlank()) return "createdAt";
+    if (sort == null || sort.isBlank()) {
+      return "createdAt";
+    }
     return switch (sort) {
       case "dueDate" -> "dueDate";
       case "priority" -> "priority";
@@ -182,17 +256,22 @@ public class TaskService {
     boolean isAdmin = current.getRole() == Role.ADMIN;
     boolean isOwner = task.getOwner() != null && task.getOwner().getId().equals(current.getId());
     boolean isAssignee = task.getAssignedTo() != null && task.getAssignedTo().getId().equals(current.getId());
-    if (!(isAdmin || isOwner || isAssignee)) throw new ForbiddenException("You do not have access to this task");
+    if (!(isAdmin || isOwner || isAssignee)) {
+      throw new ForbiddenException("You do not have access to this task");
+    }
   }
 
   private void assertCanModify(User current, Task task) {
     boolean isAdmin = current.getRole() == Role.ADMIN;
     boolean isOwner = task.getOwner() != null && task.getOwner().getId().equals(current.getId());
-    if (!(isAdmin || isOwner)) throw new ForbiddenException("Only owner or admin can modify this task");
+    if (!(isAdmin || isOwner)) {
+      throw new ForbiddenException("Only owner or admin can modify this task");
+    }
   }
 
   private TaskResponse toResponse(Task t) {
-    return taskMapper.toResponse(t,
+    return taskMapper.toResponse(
+        t,
         t.getDueDate() != null && t.getDueDate().isBefore(LocalDate.now()) && t.getStatus() != TaskStatus.COMPLETED,
         activityService.count(t));
   }

@@ -12,7 +12,9 @@ public class User {
   @Column(unique = true) private String email;
   private String password;
   @Enumerated(EnumType.STRING) private Role role;
-  @Column(name="is_verified") private boolean isVerified;
+  /** Persisted as {@code is_verified}; use {@code verified} as field name to avoid Lombok/Hibernate issues with {@code is*} booleans. */
+  @Column(name = "is_verified")
+  private boolean verified;
   @Column(name="avatar_url") private String avatarUrl;
   @Column(name="created_at") private Instant createdAt;
   @Column(name="updated_at") private Instant updatedAt;

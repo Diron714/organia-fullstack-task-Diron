@@ -1,7 +1,10 @@
 package com.organia.taskmanager.controller;
 
 import com.organia.taskmanager.dto.request.*;
-import com.organia.taskmanager.dto.response.*;
+import com.organia.taskmanager.dto.response.PagedResponse;
+import com.organia.taskmanager.dto.response.TaskActivityResponse;
+import com.organia.taskmanager.dto.response.TaskDashboardSummary;
+import com.organia.taskmanager.dto.response.TaskResponse;
 import com.organia.taskmanager.entity.User;
 import com.organia.taskmanager.repository.UserRepository;
 import com.organia.taskmanager.service.TaskService;
@@ -26,6 +29,11 @@ public class TaskController {
 
   private User current(Authentication auth) {
     return userRepository.findByEmail(auth.getName()).orElseThrow();
+  }
+
+  @GetMapping("/dashboard")
+  public TaskDashboardSummary dashboard(Authentication auth) {
+    return taskService.dashboardSummary(current(auth));
   }
 
   @GetMapping

@@ -3,6 +3,7 @@ package com.organia.taskmanager.service;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
+import com.organia.taskmanager.config.JwtConfig;
 import com.organia.taskmanager.dto.request.*;
 import com.organia.taskmanager.entity.User;
 import com.organia.taskmanager.enums.Role;
@@ -16,6 +17,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.*;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.transaction.support.TransactionCallback;
+import org.springframework.transaction.support.TransactionTemplate;
 
 @ExtendWith(MockitoExtension.class)
 class AuthServiceTest {
@@ -26,12 +29,32 @@ class AuthServiceTest {
   @Mock JwtService jwtService;
   @Mock RefreshTokenRepository refreshTokenRepository;
   @Mock UserMapper userMapper;
+  @Mock JwtConfig jwtConfig;
+  @Mock TransactionTemplate transactionTemplate;
   @Mock HttpServletResponse response;
   AuthService authService;
 
   @BeforeEach
   void setup() {
-    authService = new AuthService(userRepository, passwordEncoder, otpService, mailService, jwtService, refreshTokenRepository, userMapper);
+    when(jwtConfig.refreshTokenExpiryMs()).thenReturn(604_800_000L);
+    when(transactionTemplate.execute(any(TransactionCallback.class)))
+        .thenAnswer(
+            inv -> {
+              TransactionCallback<?> cb = inv.getArgument(0);
+              return cb.doInTransaction(null);
+            });
+    authService = new AuthService(
+        userRepository,
+        passwordEncoder,
+        transactionTemplate,
+        otpService,
+        mailService,
+        jwtService,
+        refreshTokenRepository,
+        userMapper,
+        jwtConfig,
+        false,
+        "Lax");
   }
 
   @Test
@@ -44,7 +67,7 @@ class AuthServiceTest {
 
     assertEquals("Verification email sent", res.message());
     verify(userRepository).save(any(User.class));
-    verify(mailService).sendOtp("a@b.com", "Verify your Organia account", "123456");
+    verify(mailService).sendOtpAsync("a@b.com", "Verify your Organia account", "123456");
   }
 
   @Test
@@ -62,7 +85,7 @@ class AuthServiceTest {
 
   @Test
   void login_success() {
-    User user = User.builder().email("a@b.com").password("hash").isVerified(true).role(Role.USER).build();
+    User user = User.builder().email("a@b.com").password("hash").verified(true).role(Role.USER).build();
     when(userRepository.findByEmail("a@b.com")).thenReturn(Optional.of(user));
     when(passwordEncoder.matches("Password1!", "hash")).thenReturn(true);
     when(jwtService.generateAccessToken("a@b.com")).thenReturn("access");

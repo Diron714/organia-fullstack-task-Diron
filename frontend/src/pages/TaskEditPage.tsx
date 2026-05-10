@@ -3,13 +3,34 @@ import { useQuery } from "@tanstack/react-query";
 import { getTask } from "@/api/tasks.api";
 import TaskForm from "@/components/tasks/TaskForm";
 import { useTasks } from "@/hooks/useTasks";
-import { useAuthStore } from "@/store/authStore";
+import { toUpdateTaskBody } from "@/types/task.types";
+import type { TaskFormValues } from "@/types/task.types";
+import PageSkeleton from "@/components/common/PageSkeleton";
+import { usePageTitle } from "@/hooks/usePageTitle";
 
 export default function TaskEditPage() {
+  usePageTitle("Edit task | Organia");
   const { id } = useParams();
   const navigate = useNavigate();
   const { updateMutation } = useTasks({});
-  const user = useAuthStore((s) => s.user);
-  const { data } = useQuery({ queryKey: ["task", id], queryFn: () => getTask(Number(id)).then((r) => r.data) });
-  return <main className="mx-auto max-w-2xl p-6"><h1 className="mb-4 text-2xl font-semibold">Edit task</h1><TaskForm initial={data} isAdmin={user?.role === "ADMIN"} onSubmit={async (payload) => { await updateMutation.mutateAsync({ id: Number(id), payload }); navigate("/dashboard"); }} /></main>;
+  const { data, isLoading } = useQuery({
+    queryKey: ["task", id],
+    queryFn: () => getTask(Number(id)).then((r) => r.data)
+  });
+
+  if (isLoading || !data) {
+    return <PageSkeleton />;
+  }
+
+  return (
+    <TaskForm
+      mode="edit"
+      initial={data}
+      isSubmitting={updateMutation.isPending}
+      onSubmit={async (values: TaskFormValues) => {
+        await updateMutation.mutateAsync({ id: Number(id), payload: toUpdateTaskBody(values) });
+        navigate("/dashboard");
+      }}
+    />
+  );
 }

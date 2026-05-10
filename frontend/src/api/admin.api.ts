@@ -7,3 +7,4 @@ export const deleteUser = (id: number) => api.delete(`/admin/users/${id}`);
 export const getAdminTasks = (params: Record<string, unknown>) => api.get("/admin/tasks", { params });
 export const assignTask = (id: number, assignedToId: number | null) => api.patch(`/admin/tasks/${id}/assign`, { assignedToId });
 export const bulkTaskAction = (payload: { taskIds: number[]; action: string }) => api.post("/admin/tasks/bulk-action", payload);
+export const getAdminStats = () => api.get("/admin/stats");
