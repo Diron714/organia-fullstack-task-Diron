@@ -51,7 +51,7 @@ export default function AuthSplitLayout({ children, variant = "marketing" }: Aut
   return (
     <div className="flex min-h-screen w-full flex-col bg-gray-50 dark:bg-gray-950 md:h-screen md:flex-row">
       {variant === "forgot" ? <ForgotLeftPanel /> : <MarketingLeftPanel />}
-      <main className="flex min-h-screen w-full flex-1 items-center justify-center bg-white p-8 dark:bg-gray-950 md:min-h-0 md:w-1/2">
+      <main className="page-transition flex min-h-screen w-full flex-1 items-center justify-center bg-white p-8 dark:bg-gray-950 md:min-h-0 md:w-1/2">
         <div className="w-full max-w-md rounded-2xl border border-gray-100 bg-white p-8 shadow-sm dark:border-gray-800 dark:bg-gray-900">
           {children}
         </div>

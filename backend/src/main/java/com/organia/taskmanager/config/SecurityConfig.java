@@ -1,6 +1,8 @@
 package com.organia.taskmanager.config;
 
 import com.organia.taskmanager.security.JwtAuthFilter;
+import com.organia.taskmanager.security.RestAccessDeniedHandler;
+import com.organia.taskmanager.security.RestAuthenticationEntryPoint;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -17,12 +19,23 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 @EnableMethodSecurity
 public class SecurityConfig {
   @Bean
-  SecurityFilterChain filterChain(HttpSecurity http, JwtAuthFilter jwtAuthFilter) throws Exception {
+  SecurityFilterChain filterChain(
+      HttpSecurity http,
+      JwtAuthFilter jwtAuthFilter,
+      RestAuthenticationEntryPoint authenticationEntryPoint,
+      RestAccessDeniedHandler accessDeniedHandler)
+      throws Exception {
     return http
         .csrf(c -> c.disable())
         .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+        .exceptionHandling(
+            e ->
+                e.authenticationEntryPoint(authenticationEntryPoint)
+                    .accessDeniedHandler(accessDeniedHandler))
         .authorizeHttpRequests(a -> a
             .requestMatchers("/actuator/health", "/actuator/health/**").permitAll()
+            .requestMatchers("/uploads/**").permitAll()
+            .requestMatchers("/ws", "/ws/**").permitAll()
             .requestMatchers("/api/auth/**", "/swagger-ui.html", "/swagger-ui/**", "/v3/api-docs/**").permitAll()
             .requestMatchers("/api/admin/**").hasRole("ADMIN")
             .anyRequest().authenticated())

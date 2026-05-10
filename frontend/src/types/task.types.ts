@@ -1,5 +1,16 @@
+import type { LabelResponse } from "@/types/label.types";
+
 export type TaskStatus = "TODO" | "IN_PROGRESS" | "COMPLETED";
 export type TaskPriority = "LOW" | "MEDIUM" | "HIGH";
+export type RecurrenceType = "NONE" | "DAILY" | "WEEKLY" | "MONTHLY";
+
+export interface TaskDependency {
+  id: number;
+  title: string;
+  status: TaskStatus;
+  isCompleted: boolean;
+  isOverdue: boolean;
+}
 
 export interface Task {
   id: number;
@@ -10,12 +21,24 @@ export interface Task {
   dueDate?: string;
   isOverdue?: boolean;
   ownerName?: string;
+  ownerAvatar?: string;
   assignedToName?: string;
   assignedToAvatar?: string;
   assignedToId?: number | null;
   activityCount?: number;
+  commentCount?: number;
+  labels?: LabelResponse[];
+  totalTrackedSeconds?: number;
   createdAt?: string;
   updatedAt?: string;
+  dependsOn?: TaskDependency[];
+  blocking?: TaskDependency[];
+  isBlocked?: boolean;
+  blockedCount?: number;
+  recurrenceType?: RecurrenceType;
+  recurrenceEndDate?: string;
+  isRecurring?: boolean;
+  dependencyWarning?: string | null;
 }
 
 export interface TaskDashboardSummary {
@@ -24,6 +47,9 @@ export interface TaskDashboardSummary {
   inProgress: number;
   completed: number;
   overdue: number;
+  priorityLow: number;
+  priorityMedium: number;
+  priorityHigh: number;
 }
 
 export interface TaskActivityItem {
@@ -45,6 +71,8 @@ export interface TaskFormValues {
   priority: TaskPriority;
   dueDate?: string;
   assignedToId?: string;
+  recurrenceType: RecurrenceType;
+  recurrenceEndDate?: string;
 }
 
 export function toCreateTaskBody(values: TaskFormValues, isAdmin: boolean): Record<string, unknown> {
@@ -53,7 +81,12 @@ export function toCreateTaskBody(values: TaskFormValues, isAdmin: boolean): Reco
     description: values.description?.trim() ? values.description : undefined,
     status: values.status,
     priority: values.priority,
-    dueDate: values.dueDate?.trim() ? values.dueDate : undefined
+    dueDate: values.dueDate?.trim() ? values.dueDate : undefined,
+    recurrenceType: values.recurrenceType ?? "NONE",
+    recurrenceEndDate:
+      values.recurrenceType && values.recurrenceType !== "NONE" && values.recurrenceEndDate?.trim()
+        ? values.recurrenceEndDate
+        : undefined
   };
   if (isAdmin && values.assignedToId?.trim()) {
     const id = Number(values.assignedToId);
@@ -70,6 +103,11 @@ export function toUpdateTaskBody(values: TaskFormValues): Record<string, unknown
     description: values.description?.trim() ? values.description : undefined,
     status: values.status,
     priority: values.priority,
-    dueDate: values.dueDate?.trim() ? values.dueDate : undefined
+    dueDate: values.dueDate?.trim() ? values.dueDate : undefined,
+    recurrenceType: values.recurrenceType ?? "NONE",
+    recurrenceEndDate:
+      values.recurrenceType && values.recurrenceType !== "NONE" && values.recurrenceEndDate?.trim()
+        ? values.recurrenceEndDate
+        : undefined
   };
 }

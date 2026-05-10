@@ -37,13 +37,16 @@ public class AdminController {
   }
 
   @PutMapping("/users/{id}/role")
-  public MessageResponse role(@PathVariable Long id, @Valid @RequestBody ChangeUserRoleRequest req) {
-    return adminService.changeRole(id, req);
+  public MessageResponse role(
+      Authentication auth, @PathVariable Long id, @Valid @RequestBody ChangeUserRoleRequest req) {
+    User admin = userRepository.findByEmail(auth.getName()).orElseThrow();
+    return adminService.changeRole(id, req, admin);
   }
 
   @DeleteMapping("/users/{id}")
-  public MessageResponse deleteUser(@PathVariable Long id) {
-    return adminService.deleteUser(id);
+  public MessageResponse deleteUser(Authentication auth, @PathVariable Long id) {
+    User admin = userRepository.findByEmail(auth.getName()).orElseThrow();
+    return adminService.deleteUser(id, admin);
   }
 
   @GetMapping("/tasks")

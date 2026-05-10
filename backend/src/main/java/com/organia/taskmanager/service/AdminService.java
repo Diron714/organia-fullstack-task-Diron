@@ -8,7 +8,9 @@ import com.organia.taskmanager.entity.User;
 import com.organia.taskmanager.enums.NotificationType;
 import com.organia.taskmanager.enums.TaskPriority;
 import com.organia.taskmanager.enums.TaskStatus;
+import com.organia.taskmanager.enums.Role;
 import com.organia.taskmanager.exception.BadRequestException;
+import com.organia.taskmanager.exception.ForbiddenException;
 import com.organia.taskmanager.exception.ResourceNotFoundException;
 import com.organia.taskmanager.mapper.TaskMapper;
 import com.organia.taskmanager.mapper.UserMapper;
@@ -65,7 +67,9 @@ public class AdminService {
                       cb.like(cb.lower(root.get("name")), term),
                       cb.like(cb.lower(root.get("email")), term)));
     }
-    var p = userRepository.findAll(spec, PageRequest.of(page, size));
+    var p =
+        userRepository.findAll(
+            spec, PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt")));
     List<AdminUserRowResponse> rows =
         p.getContent().stream()
             .map(
@@ -94,18 +98,35 @@ public class AdminService {
     return userRepository.findAll().stream().map(userMapper::toResponse).toList();
   }
 
-  public MessageResponse changeRole(Long id, ChangeUserRoleRequest req) {
+  public MessageResponse changeRole(Long id, ChangeUserRoleRequest req, User actor) {
     User user = userRepository.findById(id).orElseThrow(() -> new ResourceNotFoundException("User not found"));
+    if (user.getRole() == Role.ADMIN && req.role() == Role.USER) {
+      long admins = userRepository.countByRole(Role.ADMIN);
+      if (admins <= 1) {
+        throw new BadRequestException("Cannot demote the only admin");
+      }
+    }
     user.setRole(req.role());
     userRepository.save(user);
     return new MessageResponse("Role updated");
   }
 
-  public MessageResponse deleteUser(Long id) {
+  public MessageResponse deleteUser(Long id, User actor) {
+    if (id.equals(actor.getId())) {
+      throw new ForbiddenException("You cannot delete your own account");
+    }
+    User target = userRepository.findById(id).orElseThrow(() -> new ResourceNotFoundException("User not found"));
+    if (target.getRole() == Role.ADMIN) {
+      long admins = userRepository.countByRole(Role.ADMIN);
+      if (admins <= 1) {
+        throw new BadRequestException("Cannot delete the only admin account");
+      }
+    }
     userRepository.deleteById(id);
     return new MessageResponse("User deleted");
   }
 
+  @Transactional(readOnly = true)
   public PagedResponse<TaskResponse> tasks(
       int page, int size, String q, String status, String priority, Long userId, String sort, String direction) {
     Specification<Task> spec = (root, query, cb) -> cb.conjunction();
@@ -208,12 +229,16 @@ public class AdminService {
           .findById(tid)
           .ifPresent(
               task -> {
-                String oldStatus = task.getStatus().name();
+                TaskStatus previous = task.getStatus();
+                if (previous.equals(target)) {
+                  return;
+                }
                 task.setStatus(target);
                 task.setUpdatedAt(Instant.now());
-                taskRepository.save(task);
+                task = taskRepository.save(task);
                 taskActivityService.log(
-                    task, admin, "STATUS_CHANGED", "status", oldStatus, target.name());
+                    task, admin, "STATUS_CHANGED", "status", previous.name(), target.name());
+                notificationService.notifyParticipantsTaskStatusChanged(task, admin);
               });
     }
   }
@@ -237,7 +262,7 @@ public class AdminService {
         taskRepository.countByDueDateBeforeAndStatusNot(LocalDate.now(), TaskStatus.COMPLETED);
 
     List<Map<String, Object>> recentActivity = new ArrayList<>();
-    List<TaskActivity> recent = taskActivityRepository.findRecentGlobal(PageRequest.of(0, 15));
+    List<TaskActivity> recent = taskActivityRepository.findRecentGlobal(PageRequest.of(0, 20));
     for (TaskActivity a : recent) {
       recentActivity.add(
           Map.of(
@@ -255,6 +280,8 @@ public class AdminService {
               a.getNewValue() != null ? a.getNewValue() : "",
               "userName",
               a.getUser() != null && a.getUser().getName() != null ? a.getUser().getName() : "",
+              "userAvatar",
+              a.getUser() != null ? a.getUser().getAvatarUrl() : "",
               "taskTitle",
               a.getTask() != null && a.getTask().getTitle() != null ? a.getTask().getTitle() : "",
               "createdAt",

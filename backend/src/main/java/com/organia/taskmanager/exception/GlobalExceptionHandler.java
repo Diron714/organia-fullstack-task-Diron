@@ -9,11 +9,15 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.mail.MailException;
 import org.springframework.validation.FieldError;
+import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
@@ -61,6 +65,33 @@ public class GlobalExceptionHandler {
     return build(429, "Too Many Requests", ex.getMessage(), req.getRequestURI());
   }
 
+  @ExceptionHandler(HttpMessageNotReadableException.class)
+  public ResponseEntity<ErrorResponse> notReadable(HttpMessageNotReadableException ex, HttpServletRequest req) {
+    return build(400, "Bad Request", "Malformed or unreadable request body", req.getRequestURI());
+  }
+
+  @ExceptionHandler(MissingServletRequestParameterException.class)
+  public ResponseEntity<ErrorResponse> missingParam(
+      MissingServletRequestParameterException ex, HttpServletRequest req) {
+    return build(400, "Bad Request", "Missing parameter: " + ex.getParameterName(), req.getRequestURI());
+  }
+
+  @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+  public ResponseEntity<ErrorResponse> typeMismatch(
+      MethodArgumentTypeMismatchException ex, HttpServletRequest req) {
+    return build(
+        400,
+        "Bad Request",
+        "Invalid value for parameter " + ex.getName(),
+        req.getRequestURI());
+  }
+
+  @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
+  public ResponseEntity<ErrorResponse> methodNotSupported(
+      HttpRequestMethodNotSupportedException ex, HttpServletRequest req) {
+    return build(405, "Method Not Allowed", ex.getMessage(), req.getRequestURI());
+  }
+
   @ExceptionHandler(DataIntegrityViolationException.class)
   public ResponseEntity<ErrorResponse> dataIntegrity(
       DataIntegrityViolationException ex, HttpServletRequest req) {
@@ -69,6 +100,19 @@ public class GlobalExceptionHandler {
     String msg = root.getMessage();
     if (msg != null && (msg.contains("Duplicate") || msg.contains("unique") || msg.contains("UK_"))) {
       return build(409, "Conflict", "Email already exists", req.getRequestURI());
+    }
+    if (msg != null
+        && (msg.contains("Data too long")
+            || msg.contains("too long for column")
+            || msg.contains("truncat")
+            || msg.contains("Out of range")
+            || msg.contains("OUT OF RANGE"))) {
+      return build(
+          400,
+          "Bad Request",
+          "A value was too large to save (for example a profile image pasted as text). "
+              + "Use Upload photo on your profile, or use a shorter link.",
+          req.getRequestURI());
     }
     return build(409, "Conflict", "Request could not be completed (data conflict).", req.getRequestURI());
   }
@@ -91,11 +135,11 @@ public class GlobalExceptionHandler {
   @ExceptionHandler(Exception.class)
   public ResponseEntity<ErrorResponse> generic(Exception ex, HttpServletRequest req) {
     log.error("Unhandled exception on {}", req.getRequestURI(), ex);
-    String message = ex.getMessage();
-    if (message == null || message.isBlank()) {
-      message = ex.getClass().getSimpleName();
-    }
-    return build(500, "Internal Server Error", message, req.getRequestURI());
+    return build(
+        500,
+        "Internal Server Error",
+        "Something went wrong. Please try again.",
+        req.getRequestURI());
   }
 
   private ResponseEntity<ErrorResponse> build(int status, String error, String message, String path) {

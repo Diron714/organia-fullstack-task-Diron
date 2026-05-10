@@ -14,6 +14,7 @@ import type { AdminUserListItem } from "@/types/user.types";
 import { Select, SelectItem } from "@/components/ui/select";
 import { format } from "date-fns";
 import { usePageTitle } from "@/hooks/usePageTitle";
+import ConfirmDialog from "@/components/common/ConfirmDialog";
 
 export default function AdminTasksPage() {
   usePageTitle("Admin · Tasks | Organia");
@@ -23,7 +24,8 @@ export default function AdminTasksPage() {
   const status = searchParams.get("status") ?? "";
   const priority = searchParams.get("priority") ?? "";
   const userId = searchParams.get("userId") ?? "";
-  const page = Number(searchParams.get("page") ?? "0");
+  const pageParam = Number(searchParams.get("page") ?? "0");
+  const page = Number.isFinite(pageParam) && pageParam >= 0 ? Math.floor(pageParam) : 0;
 
   const [selected, setSelected] = useState<number[]>([]);
 
@@ -32,7 +34,7 @@ export default function AdminTasksPage() {
     queryFn: () => getAdminUsersList().then((r) => r.data as AdminUserListItem[])
   });
 
-  const { data, refetch, isLoading } = useQuery({
+  const { data, refetch, isPending, isError, error } = useQuery({
     queryKey: ["admin-tasks", q, status, priority, userId, page],
     queryFn: () =>
       getAdminTasks({
@@ -54,8 +56,24 @@ export default function AdminTasksPage() {
     setSearchParams(Object.fromEntries(Object.entries(merged).filter(([, value]) => value !== "")));
   };
 
-  if (isLoading) {
+  if (isPending) {
     return <PageSkeleton variant="table" />;
+  }
+
+  if (isError) {
+    return (
+      <div className="mx-auto max-w-7xl space-y-4 px-4 py-8 md:px-6">
+        <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">All tasks</h1>
+        <p className="text-sm text-red-600 dark:text-red-400">{parseApiError(error).message}</p>
+        <button
+          type="button"
+          className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700"
+          onClick={() => void refetch()}
+        >
+          Retry
+        </button>
+      </div>
+    );
   }
 
   const totalPages = data?.totalPages ?? 1;
@@ -238,13 +256,19 @@ export default function AdminTasksPage() {
             >
               In progress
             </button>
-            <button
-              type="button"
-              className="rounded-lg bg-red-600 px-3 py-2 text-sm font-medium text-white hover:bg-red-700"
-              onClick={() => void runBulk("DELETE")}
+            <ConfirmDialog
+              title={`Delete ${selected.length} task${selected.length === 1 ? "" : "s"}?`}
+              description="These tasks will be permanently removed. This cannot be undone."
+              confirmLabel="Delete"
+              onConfirm={() => runBulk("DELETE")}
             >
-              Delete
-            </button>
+              <button
+                type="button"
+                className="rounded-lg bg-red-600 px-3 py-2 text-sm font-medium text-white hover:bg-red-700"
+              >
+                Delete
+              </button>
+            </ConfirmDialog>
           </div>
         </div>
       ) : null}

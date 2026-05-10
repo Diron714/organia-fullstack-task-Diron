@@ -1,9 +1,12 @@
 import { matchPath, useLocation, useSearchParams } from "react-router-dom";
+import { Search } from "lucide-react";
 import { useAuthStore } from "@/store/authStore";
 import SearchBar from "@/components/common/SearchBar";
+import { useSearchStore } from "@/store/searchStore";
 import ThemeToggle from "@/components/layout/ThemeToggle";
 import NotificationBell from "@/components/layout/NotificationBell";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { resolveAvatarUrl } from "@/utils/mediaUrl";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -14,6 +17,8 @@ import { useNavigate } from "react-router-dom";
 
 const ROUTE_TITLES: { path: string; title: string }[] = [
   { path: "/dashboard", title: "Dashboard" },
+  { path: "/analytics", title: "Analytics" },
+  { path: "/kanban", title: "Kanban Board" },
   { path: "/tasks/new", title: "Create task" },
   { path: "/tasks/:id/edit", title: "Edit task" },
   { path: "/tasks/:id/activity", title: "Task activity" },
@@ -28,6 +33,7 @@ export default function Header() {
   const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
   const { user, logout } = useAuthStore();
+  const toggleSearch = useSearchStore((s) => s.toggle);
   const navigate = useNavigate();
 
   const matched = ROUTE_TITLES.find((r) => matchPath({ path: r.path, end: true }, location.pathname));
@@ -58,6 +64,18 @@ export default function Header() {
         </div>
       )}
       <div className="flex items-center gap-1">
+        <button
+          type="button"
+          onClick={() => toggleSearch()}
+          title="Search (Ctrl+K or ⌘K)"
+          className="hidden items-center gap-2 rounded-lg border border-gray-200 px-3 py-1.5 text-sm text-gray-500 hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-800 md:inline-flex"
+        >
+          <Search className="h-4 w-4" />
+          <span>Search…</span>
+          <kbd className="rounded border border-gray-200 bg-gray-50 px-1.5 font-mono text-[10px] text-gray-400 dark:border-gray-600 dark:bg-gray-800">
+            Ctrl+K
+          </kbd>
+        </button>
         <NotificationBell />
         <ThemeToggle />
         <DropdownMenu>
@@ -68,7 +86,7 @@ export default function Header() {
               aria-label="Account menu"
             >
               <Avatar className="h-8 w-8">
-                {user?.avatarUrl ? <AvatarImage src={user.avatarUrl} alt="" /> : null}
+                {user?.avatarUrl ? <AvatarImage src={resolveAvatarUrl(user.avatarUrl) ?? user.avatarUrl} alt="" /> : null}
                 <AvatarFallback className="bg-indigo-100 text-xs text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200">
                   {(user?.name ?? "U").slice(0, 2).toUpperCase()}
                 </AvatarFallback>

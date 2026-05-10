@@ -1,0 +1,5 @@
+ALTER TABLE tasks
+  ADD COLUMN recurrence_type ENUM('NONE','DAILY','WEEKLY','MONTHLY') NOT NULL DEFAULT 'NONE',
+  ADD COLUMN recurrence_end_date DATE DEFAULT NULL,
+  ADD COLUMN original_task_id BIGINT DEFAULT NULL,
+  ADD CONSTRAINT fk_original_task FOREIGN KEY (original_task_id) REFERENCES tasks(id) ON DELETE SET NULL;

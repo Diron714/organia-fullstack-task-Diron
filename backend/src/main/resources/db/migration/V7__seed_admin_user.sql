@@ -2,9 +2,8 @@ INSERT INTO users (name, email, password, role, is_verified)
 VALUES (
   'Admin User',
   'admin@organia.com',
-  '$2a$12$q7yGt3NJPY6Fsvud3omiDOmPhED1J4LxxnGfECTQHDVz8m/AvyF3W',
+  '$2a$12$In3nm19dlh.bGYhAs3OxtOmy7esh0vYng/VelL6xLtDf9waXP96Hm',
   'ADMIN',
   TRUE
 );
--- NOTE: Replace the password hash above with bcrypt hash of 'Admin123!'
--- Generate with: htpasswd -bnBC 12 "" Admin123! | tr -d ':\n'
+-- Password: Admin123! (bcrypt 12). V18 reapplies the same hash for DBs created before this fix.

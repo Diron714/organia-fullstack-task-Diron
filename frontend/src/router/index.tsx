@@ -5,6 +5,8 @@ import VerifyEmailPage from "@/pages/VerifyEmailPage";
 import LoginPage from "@/pages/LoginPage";
 import ForgotPasswordPage from "@/pages/ForgotPasswordPage";
 import DashboardPage from "@/pages/DashboardPage";
+import KanbanPage from "@/pages/KanbanPage";
+import AnalyticsPage from "@/pages/AnalyticsPage";
 import TaskCreatePage from "@/pages/TaskCreatePage";
 import TaskEditPage from "@/pages/TaskEditPage";
 import ProfilePage from "@/pages/ProfilePage";
@@ -35,6 +37,8 @@ export const router = createBrowserRouter([
             element: <AppLayout />,
             children: [
               { path: "dashboard", element: <DashboardPage /> },
+              { path: "analytics", element: <AnalyticsPage /> },
+              { path: "kanban", element: <KanbanPage /> },
               { path: "tasks/new", element: <TaskCreatePage /> },
               { path: "tasks/:id/edit", element: <TaskEditPage /> },
               { path: "tasks/:id/activity", element: <TaskActivityLog /> },

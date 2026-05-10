@@ -6,6 +6,7 @@ import static org.mockito.Mockito.*;
 import com.organia.taskmanager.config.JwtConfig;
 import com.organia.taskmanager.dto.request.*;
 import com.organia.taskmanager.entity.User;
+import com.organia.taskmanager.enums.EmailOtpKind;
 import com.organia.taskmanager.enums.Role;
 import com.organia.taskmanager.mapper.UserMapper;
 import com.organia.taskmanager.repository.*;
@@ -67,7 +68,7 @@ class AuthServiceTest {
 
     assertEquals("Verification email sent", res.message());
     verify(userRepository).save(any(User.class));
-    verify(mailService).sendOtpAsync("a@b.com", "Verify your Organia account", "123456");
+    verify(mailService).sendOtpAsync("a@b.com", "Verify your Organia account", "123456", EmailOtpKind.REGISTER);
   }
 
   @Test
@@ -81,6 +82,7 @@ class AuthServiceTest {
     var res = authService.verifyEmail(new OtpVerifyRequest("a@b.com", "123456"), response);
 
     assertEquals("access", res.accessToken());
+    verify(mailService).sendWelcomeEmailAsync(user);
   }
 
   @Test

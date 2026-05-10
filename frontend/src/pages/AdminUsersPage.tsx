@@ -14,11 +14,14 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from "@/compon
 import type { AdminUserRow } from "@/types/user.types";
 import type { PagedResponse } from "@/types/api.types";
 import { parseApiError } from "@/utils/errorUtils";
+import { resolveAvatarUrl } from "@/utils/mediaUrl";
 import { usePageTitle } from "@/hooks/usePageTitle";
+import { useAuthStore } from "@/store/authStore";
 
 export default function AdminUsersPage() {
   usePageTitle("Admin · Users | Organia");
   const queryClient = useQueryClient();
+  const currentUserId = useAuthStore((s) => s.user?.id);
   const [q, setQ] = useState("");
   const [page, setPage] = useState(0);
 
@@ -26,15 +29,31 @@ export default function AdminUsersPage() {
     setPage(0);
   }, [q]);
 
-  const { data, refetch, isLoading } = useQuery({
+  const { data, refetch, isPending, isError, error } = useQuery({
     queryKey: ["admin-users", q, page],
     queryFn: () => getAdminUsers({ q, page, size: 10 }).then((r) => r.data as PagedResponse<AdminUserRow>)
   });
 
   const users = data?.content ?? [];
 
-  if (isLoading) {
+  if (isPending) {
     return <PageSkeleton variant="table" />;
+  }
+
+  if (isError) {
+    return (
+      <div className="mx-auto max-w-7xl space-y-4 px-4 py-8 md:px-6">
+        <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">Users</h1>
+        <p className="text-sm text-red-600 dark:text-red-400">{parseApiError(error).message}</p>
+        <button
+          type="button"
+          className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700"
+          onClick={() => void refetch()}
+        >
+          Retry
+        </button>
+      </div>
+    );
   }
 
   return (
@@ -72,12 +91,14 @@ export default function AdminUsersPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
-              {users.map((u) => (
+              {users.map((u) => {
+                const isSelf = currentUserId != null && u.id === currentUserId;
+                return (
                 <tr key={u.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50">
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-3">
                       <Avatar className="h-9 w-9">
-                        <AvatarImage src={u.avatarUrl} alt="" />
+                        <AvatarImage src={resolveAvatarUrl(u.avatarUrl) ?? u.avatarUrl} alt="" />
                         <AvatarFallback>{u.name.slice(0, 2).toUpperCase()}</AvatarFallback>
                       </Avatar>
                       <div>
@@ -131,25 +152,33 @@ export default function AdminUsersPage() {
                         </button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent>
-                        <ConfirmDialog
-                          title={`Delete ${u.name}?`}
-                          confirmLabel="Delete"
-                          onConfirm={async () => {
-                            await deleteUser(u.id);
-                            toast.success("User deleted successfully");
-                            await refetch();
-                            await queryClient.invalidateQueries({ queryKey: ["admin-stats"] });
-                          }}
-                        >
-                          <span className="block cursor-pointer px-2 py-1.5 text-sm text-red-600 dark:text-red-400">
-                            Delete user
+                        {isSelf ? (
+                          <span className="block px-2 py-1.5 text-xs text-gray-500 dark:text-gray-400">
+                            You can&apos;t delete your own account here
                           </span>
-                        </ConfirmDialog>
+                        ) : (
+                          <ConfirmDialog
+                            title={`Delete ${u.name}?`}
+                            confirmLabel="Delete"
+                            onConfirm={async () => {
+                              await deleteUser(u.id);
+                              toast.success("User deleted successfully");
+                              await refetch();
+                              await queryClient.invalidateQueries({ queryKey: ["admin-stats"] });
+                              await queryClient.invalidateQueries({ queryKey: ["admin-users-list"] });
+                            }}
+                          >
+                            <span className="block cursor-pointer px-2 py-1.5 text-sm text-red-600 dark:text-red-400">
+                              Delete user
+                            </span>
+                          </ConfirmDialog>
+                        )}
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </td>
                 </tr>
-              ))}
+              );
+              })}
             </tbody>
           </table>
         </div>

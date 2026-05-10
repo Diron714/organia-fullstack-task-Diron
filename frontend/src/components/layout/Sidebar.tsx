@@ -1,8 +1,10 @@
 import { Link, NavLink, useNavigate } from "react-router-dom";
 import {
+  BarChart3,
   Bell,
   CheckSquare,
   LayoutDashboard,
+  LayoutGrid,
   LogOut,
   Menu,
   Plus,
@@ -11,6 +13,7 @@ import {
 } from "lucide-react";
 import { useAuthStore } from "@/store/authStore";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { resolveAvatarUrl } from "@/utils/mediaUrl";
 import { Button } from "@/components/ui/button";
 import { useNotifications } from "@/hooks/useNotifications";
 import { useState } from "react";
@@ -33,6 +36,14 @@ function NavItems({ onNavigate }: { onNavigate?: () => void }) {
       <NavLink to="/dashboard" className={navClass} onClick={onNavigate}>
         <LayoutDashboard className="h-5 w-5 shrink-0" />
         Dashboard
+      </NavLink>
+      <NavLink to="/kanban" className={navClass} onClick={onNavigate}>
+        <LayoutGrid className="h-5 w-5 shrink-0" />
+        Kanban
+      </NavLink>
+      <NavLink to="/analytics" className={navClass} onClick={onNavigate}>
+        <BarChart3 className="h-5 w-5 shrink-0" />
+        Analytics
       </NavLink>
       <NavLink to="/dashboard" className={navClass} onClick={onNavigate}>
         <CheckSquare className="h-5 w-5 shrink-0" />
@@ -101,7 +112,7 @@ export default function Sidebar() {
     <div className="mt-auto border-t border-gray-200 p-3 dark:border-gray-700">
       <div className="mb-3 flex items-center gap-3 rounded-lg px-2 py-2">
         <Avatar className="h-9 w-9">
-          <AvatarImage src={user?.avatarUrl} alt="" />
+          <AvatarImage src={resolveAvatarUrl(user?.avatarUrl) ?? user?.avatarUrl} alt="" />
           <AvatarFallback className="bg-indigo-100 text-xs text-indigo-700 dark:bg-indigo-900 dark:text-indigo-200">
             {(user?.name ?? "U").slice(0, 2).toUpperCase()}
           </AvatarFallback>

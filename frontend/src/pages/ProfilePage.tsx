@@ -10,9 +10,11 @@ import { Label } from "@/components/ui/label";
 import PasswordStrengthMeter from "@/components/auth/PasswordStrengthMeter";
 import ConfirmDialog from "@/components/common/ConfirmDialog";
 import PageSkeleton from "@/components/common/PageSkeleton";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import AvatarUpload from "@/components/profile/AvatarUpload";
+import { DashboardWidgetToggles } from "@/components/dashboard/WidgetPreferencesPanel";
 import { Badge } from "@/components/ui/badge";
 import { parseApiError } from "@/utils/errorUtils";
+import { meetsServerPasswordRules } from "@/utils/passwordPolicy";
 import { useAuthStore } from "@/store/authStore";
 import { usePageTitle } from "@/hooks/usePageTitle";
 
@@ -24,7 +26,7 @@ export default function ProfilePage() {
   const logout = useAuthStore((s) => s.logout);
   const token = useAuthStore((s) => s.token);
 
-  const { data, refetch, isLoading } = useQuery({
+  const { data, refetch, isPending, isError, error } = useQuery({
     queryKey: ["me"],
     queryFn: () => getMe().then((r) => r.data)
   });
@@ -43,9 +45,28 @@ export default function ProfilePage() {
     }
   }, [data]);
 
-  if (isLoading || !data) {
+  if (isPending) {
     return <PageSkeleton variant="table" />;
   }
+
+  if (isError || !data) {
+    return (
+      <div className="mx-auto max-w-3xl space-y-4 px-4 py-8 md:px-6">
+        <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">Profile</h1>
+        <p className="text-sm text-red-600 dark:text-red-400">{parseApiError(error).message}</p>
+        <Button type="button" className="bg-indigo-600 hover:bg-indigo-700" onClick={() => void refetch()}>
+          Retry
+        </Button>
+      </div>
+    );
+  }
+
+  const emailMatchesDeleteConfirm =
+    confirmEmail.trim().toLowerCase() === data.email.trim().toLowerCase();
+  const canChangePassword =
+    currentPassword.length > 0 &&
+    meetsServerPasswordRules(newPassword) &&
+    newPassword === confirmPassword;
 
   return (
     <div className="mx-auto max-w-3xl space-y-6 px-4 py-6 md:px-6 md:py-8">
@@ -56,11 +77,25 @@ export default function ProfilePage() {
           Profile
         </h2>
         <div className="mt-6 flex flex-col gap-6 md:flex-row">
-          <div className="relative mx-auto md:mx-0">
-            <Avatar className="h-20 w-20">
-              <AvatarImage src={avatarUrl || data.avatarUrl} alt="" />
-              <AvatarFallback className="text-lg">{data.name.slice(0, 2).toUpperCase()}</AvatarFallback>
-            </Avatar>
+          <div className="mx-auto md:mx-0">
+            <AvatarUpload
+              currentAvatarUrl={avatarUrl || data.avatarUrl}
+              userName={data.name}
+              onUploadSuccess={(newUrl) => {
+                setAvatarUrl(newUrl);
+                if (token) {
+                  setAuth(token, {
+                    id: data.id,
+                    name: data.name,
+                    email: data.email,
+                    role: data.role,
+                    avatarUrl: newUrl,
+                    isVerified: data.isVerified
+                  });
+                }
+                void queryClient.invalidateQueries({ queryKey: ["me"] });
+              }}
+            />
           </div>
           <div className="flex-1 space-y-4">
             <div>
@@ -104,14 +139,17 @@ export default function ProfilePage() {
               ))}
             </div>
             <div>
-              <Label htmlFor="avatarUrl">Avatar URL</Label>
+              <Label htmlFor="avatarUrl">Avatar image URL (optional)</Label>
               <Input
                 id="avatarUrl"
                 className="mt-1.5"
                 value={avatarUrl}
                 onChange={(e) => setAvatarUrl(e.target.value)}
-                placeholder="https://…"
+                placeholder="https://… or leave blank if you use photo upload"
               />
+              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                Prefer clicking your photo above. Use this only for an external image link.
+              </p>
             </div>
             <Button
               className="bg-indigo-600 hover:bg-indigo-700"
@@ -143,6 +181,16 @@ export default function ProfilePage() {
 
       <section className="rounded-xl border border-gray-200 bg-white p-6 dark:border-gray-700 dark:bg-gray-900">
         <h2 className="text-sm font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">
+          Dashboard
+        </h2>
+        <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">
+          Show or hide sections on your dashboard. The same settings apply to the Customize panel on the dashboard.
+        </p>
+        <DashboardWidgetToggles className="mt-5 space-y-5" />
+      </section>
+
+      <section className="rounded-xl border border-gray-200 bg-white p-6 dark:border-gray-700 dark:bg-gray-900">
+        <h2 className="text-sm font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">
           Change password
         </h2>
         <div className="mt-4 space-y-3">
@@ -159,6 +207,11 @@ export default function ProfilePage() {
             onChange={(e) => setNewPassword(e.target.value)}
           />
           <PasswordStrengthMeter password={newPassword} />
+          {newPassword.length > 0 && !meetsServerPasswordRules(newPassword) ? (
+            <p className="text-xs text-amber-700 dark:text-amber-300">
+              Password must be at least 8 characters with one uppercase letter, one digit, and one special character.
+            </p>
+          ) : null}
           <Input
             type="password"
             placeholder="Confirm password"
@@ -167,6 +220,7 @@ export default function ProfilePage() {
           />
           <Button
             className="bg-indigo-600 hover:bg-indigo-700"
+            disabled={!canChangePassword}
             onClick={async () => {
               const t = toast.loading("Updating password…");
               try {
@@ -196,7 +250,7 @@ export default function ProfilePage() {
           title="Delete account?"
           description="This action cannot be undone."
           confirmLabel="Delete account"
-          confirmDisabled={confirmEmail.trim() !== data.email}
+          confirmDisabled={!emailMatchesDeleteConfirm}
           onDialogOpenChange={(open) => {
             if (!open) setConfirmEmail("");
           }}

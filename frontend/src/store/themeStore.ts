@@ -20,6 +20,12 @@ export const useThemeStore = create<ThemeState>()(
         document.documentElement.classList.toggle("dark", isDark);
       }
     }),
-    { name: "theme", storage: createJSONStorage(() => localStorage) }
+    {
+      name: "theme",
+      storage: createJSONStorage(() => localStorage),
+      onRehydrateStorage: () => (state) => {
+        queueMicrotask(() => state?.applyTheme());
+      }
+    }
   )
 );
