@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import toast from "react-hot-toast";
 import { Mail, Lock, Eye, EyeOff, Loader2 } from "lucide-react";
@@ -31,6 +31,9 @@ export default function LoginPage() {
   });
   const setAuth = useAuthStore((s) => s.setAuth);
   const navigate = useNavigate();
+  const location = useLocation();
+  const redirectTo =
+    (location.state as { from?: { pathname?: string } } | null)?.from?.pathname ?? "/dashboard";
 
   return (
     <AuthSplitLayout>
@@ -44,7 +47,7 @@ export default function LoginPage() {
             const res = await login(values);
             setAuth(res.data.accessToken, res.data.user);
             toast.success("Signed in successfully");
-            navigate("/dashboard");
+            navigate(redirectTo, { replace: true });
           } catch (error) {
             toast.error(applyServerErrors(error, setError));
           }

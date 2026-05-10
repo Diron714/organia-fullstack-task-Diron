@@ -41,6 +41,8 @@ export function useTasks(params: Record<string, unknown>) {
   const invalidateTaskQueries = async () => {
     await queryClient.invalidateQueries({ queryKey: ["tasks"] });
     await queryClient.invalidateQueries({ queryKey: ["task-dashboard"] });
+    await queryClient.invalidateQueries({ queryKey: ["productivity"] });
+    await queryClient.invalidateQueries({ queryKey: ["streak"] });
   };
 
   const createMutation = useMutation({
@@ -55,8 +57,11 @@ export function useTasks(params: Record<string, unknown>) {
   const updateMutation = useMutation({
     mutationFn: ({ id, payload }: { id: number; payload: Record<string, unknown> }) =>
       updateTask(id, payload).then((r) => r.data),
-    onSuccess: async () => {
+    onSuccess: async (data) => {
       toast.success("Task updated successfully");
+      if (data?.dependencyWarning) {
+        toast(data.dependencyWarning, { icon: "⚠️" });
+      }
       await queryClient.invalidateQueries({ queryKey: ["task"] });
       await invalidateTaskQueries();
     },
@@ -117,7 +122,12 @@ export function useTasks(params: Record<string, unknown>) {
       });
       toast.error(parseApiError(error).message);
     },
-    onSuccess: () => toast.success("Status updated successfully"),
+    onSuccess: (data) => {
+      toast.success("Status updated successfully");
+      if (data?.dependencyWarning) {
+        toast(data.dependencyWarning, { icon: "⚠️" });
+      }
+    },
     onSettled: async () => {
       await invalidateTaskQueries();
     }

@@ -1,3 +1,11 @@
 package com.organia.taskmanager.dto.response;
 
-public record TaskDashboardSummary(long total, long todo, long inProgress, long completed, long overdue) {}
+public record TaskDashboardSummary(
+    long total,
+    long todo,
+    long inProgress,
+    long completed,
+    long overdue,
+    long priorityLow,
+    long priorityMedium,
+    long priorityHigh) {}

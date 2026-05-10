@@ -2,6 +2,7 @@ package com.organia.taskmanager.service;
 
 import com.organia.taskmanager.dto.response.NotificationResponse;
 import com.organia.taskmanager.entity.Notification;
+import com.organia.taskmanager.entity.Task;
 import com.organia.taskmanager.entity.User;
 import com.organia.taskmanager.enums.NotificationType;
 import com.organia.taskmanager.exception.ForbiddenException;
@@ -37,8 +38,42 @@ public class NotificationService {
             .build());
   }
 
+  /** Notifies owner and assignee when task status changes; skips the actor. One ping if owner == assignee. */
+  public void notifyParticipantsTaskStatusChanged(Task task, User actor) {
+    Long actorId = actor.getId();
+    User assignee = task.getAssignedTo();
+    User owner = task.getOwner();
+    if (owner != null && assignee != null && owner.getId().equals(assignee.getId())) {
+      if (!owner.getId().equals(actorId)) {
+        create(
+            owner,
+            "Task updated",
+            "Task status changed",
+            NotificationType.TASK_UPDATED,
+            task.getId());
+      }
+      return;
+    }
+    if (assignee != null && !assignee.getId().equals(actorId)) {
+      create(
+          assignee,
+          "Task updated",
+          "Task status changed",
+          NotificationType.TASK_UPDATED,
+          task.getId());
+    }
+    if (owner != null && !owner.getId().equals(actorId)) {
+      create(
+          owner,
+          "Task updated",
+          "Task status changed",
+          NotificationType.TASK_UPDATED,
+          task.getId());
+    }
+  }
+
   public Page<NotificationResponse> list(User user, int page, int size) {
-    return repository.findByUserOrderByIsReadAscCreatedAtDesc(user, PageRequest.of(page, size)).map(mapper::toResponse);
+    return repository.findByUserOrderByCreatedAtDesc(user, PageRequest.of(page, size)).map(mapper::toResponse);
   }
 
   public long unread(User user) {

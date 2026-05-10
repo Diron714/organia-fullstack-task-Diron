@@ -3,7 +3,7 @@ import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft, Loader2 } from "lucide-react";
+import { ArrowLeft, Loader2, RotateCw } from "lucide-react";
 import { Link } from "react-router-dom";
 import toast from "react-hot-toast";
 import { Input } from "@/components/ui/input";
@@ -17,14 +17,29 @@ import { Select, SelectItem } from "@/components/ui/select";
 import { getAdminUsersList } from "@/api/admin.api";
 import type { AdminUserListItem } from "@/types/user.types";
 
-const schema = z.object({
-  title: z.string().min(1, "Title is required"),
-  description: z.string().optional(),
-  status: z.enum(["TODO", "IN_PROGRESS", "COMPLETED"]),
-  priority: z.enum(["LOW", "MEDIUM", "HIGH"]),
-  dueDate: z.string().optional(),
-  assignedToId: z.string().optional()
-});
+const schema = z
+  .object({
+    title: z.string().min(1, "Title is required"),
+    description: z.string().optional(),
+    status: z.enum(["TODO", "IN_PROGRESS", "COMPLETED"]),
+    priority: z.enum(["LOW", "MEDIUM", "HIGH"]),
+    dueDate: z.string().optional(),
+    assignedToId: z.string().optional(),
+    recurrenceType: z.enum(["NONE", "DAILY", "WEEKLY", "MONTHLY"]),
+    recurrenceEndDate: z.string().optional()
+  })
+  .superRefine((data, ctx) => {
+    if (data.recurrenceType !== "NONE") {
+      const end = data.recurrenceEndDate?.trim() ?? "";
+      if (!end) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "End date is required for recurring tasks",
+          path: ["recurrenceEndDate"]
+        });
+      }
+    }
+  });
 
 export default function TaskForm({
   mode,
@@ -42,7 +57,7 @@ export default function TaskForm({
   const { data: userOptions = [] } = useQuery({
     queryKey: ["admin-users-list"],
     queryFn: () => getAdminUsersList().then((r) => r.data as AdminUserListItem[]),
-    enabled: isAdmin && mode === "create"
+    enabled: isAdmin && (mode === "create" || mode === "edit")
   });
 
   const {
@@ -61,13 +76,16 @@ export default function TaskForm({
       status: initial?.status ?? "TODO",
       priority: initial?.priority ?? "MEDIUM",
       dueDate: initial?.dueDate?.slice(0, 10) ?? "",
-      assignedToId: ""
+      assignedToId: "",
+      recurrenceType: initial?.recurrenceType ?? "NONE",
+      recurrenceEndDate: initial?.recurrenceEndDate?.slice(0, 10) ?? ""
     }
   });
 
   const status = watch("status");
   const priority = watch("priority");
   const assign = watch("assignedToId");
+  const recurrenceType = watch("recurrenceType");
 
   useEffect(() => {
     if (initial) {
@@ -77,7 +95,9 @@ export default function TaskForm({
         status: initial.status ?? "TODO",
         priority: initial.priority ?? "MEDIUM",
         dueDate: initial.dueDate?.slice(0, 10) ?? "",
-        assignedToId: ""
+        assignedToId: initial.assignedToId != null ? String(initial.assignedToId) : "",
+        recurrenceType: initial.recurrenceType ?? "NONE",
+        recurrenceEndDate: initial.recurrenceEndDate?.slice(0, 10) ?? ""
       });
     }
   }, [initial, reset]);
@@ -154,11 +174,51 @@ export default function TaskForm({
           </div>
 
           <div>
-            <Label htmlFor="dueDate">Due date</Label>
+            <Label htmlFor="dueDate" className="flex items-center gap-2">
+              Due date
+              {initial?.isRecurring || recurrenceType !== "NONE" ? (
+                <span title="Recurring task" className="inline-flex">
+                  <RotateCw className="h-4 w-4 text-gray-400" aria-hidden />
+                </span>
+              ) : null}
+            </Label>
             <Input id="dueDate" type="date" className="mt-1.5" {...register("dueDate")} />
           </div>
 
-          {isAdmin && mode === "create" ? (
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <div>
+              <Label>Repeat</Label>
+              <div className="mt-1.5">
+                <Select
+                  value={recurrenceType}
+                  onChange={(v) =>
+                    setValue("recurrenceType", v as TaskFormValues["recurrenceType"])
+                  }
+                >
+                  <SelectItem value="NONE">None</SelectItem>
+                  <SelectItem value="DAILY">Daily</SelectItem>
+                  <SelectItem value="WEEKLY">Weekly</SelectItem>
+                  <SelectItem value="MONTHLY">Monthly</SelectItem>
+                </Select>
+              </div>
+            </div>
+            {recurrenceType !== "NONE" ? (
+              <div>
+                <Label htmlFor="recurrenceEndDate">Repeat until</Label>
+                <Input
+                  id="recurrenceEndDate"
+                  type="date"
+                  className="mt-1.5"
+                  {...register("recurrenceEndDate")}
+                />
+                {errors.recurrenceEndDate ? (
+                  <p className="mt-1 text-xs text-red-500">{errors.recurrenceEndDate.message}</p>
+                ) : null}
+              </div>
+            ) : null}
+          </div>
+
+          {isAdmin && (mode === "create" || mode === "edit") ? (
             <div>
               <Label>Assign to</Label>
               <div className="mt-1.5">

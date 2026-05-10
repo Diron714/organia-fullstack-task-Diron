@@ -6,6 +6,9 @@ import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveCo
 import { formatDistanceToNow } from "date-fns";
 import { Link } from "react-router-dom";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { resolveAvatarUrl } from "@/utils/mediaUrl";
+import { parseApiError } from "@/utils/errorUtils";
+import { Button } from "@/components/ui/button";
 
 type AdminStats = {
   totalUsers: number;
@@ -19,10 +22,15 @@ type AdminStats = {
     action: string;
     fieldChanged: string;
     userName: string;
+    userAvatar?: string;
     taskTitle: string;
     createdAt: string;
   }>;
 };
+
+function isActivityAvatar(url?: string) {
+  return Boolean(resolveAvatarUrl(url));
+}
 
 const STATUS_COLORS: Record<string, string> = {
   TODO: "#9ca3af",
@@ -32,13 +40,25 @@ const STATUS_COLORS: Record<string, string> = {
 
 export default function AdminStatsPage() {
   usePageTitle("Admin | Organia");
-  const { data, isLoading } = useQuery({
+  const { data, isPending, isError, error, refetch } = useQuery({
     queryKey: ["admin-stats"],
     queryFn: () => getAdminStats().then((r) => r.data as AdminStats)
   });
 
-  if (isLoading || !data) {
+  if (isPending) {
     return <PageSkeleton variant="dashboard" />;
+  }
+
+  if (isError || !data) {
+    return (
+      <div className="mx-auto max-w-7xl space-y-4 px-4 py-8 md:px-6">
+        <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">Admin overview</h1>
+        <p className="text-sm text-red-600 dark:text-red-400">{parseApiError(error).message}</p>
+        <Button type="button" className="bg-indigo-600 hover:bg-indigo-700" onClick={() => void refetch()}>
+          Retry
+        </Button>
+      </div>
+    );
   }
 
   const statusData = Object.entries(data.tasksByStatus).map(([name, value]) => ({ name, value }));
@@ -129,6 +149,7 @@ export default function AdminStatsPage() {
           <h2 className="text-sm font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">
             Recent activity
           </h2>
+          <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">Last 20 changes across all users</p>
         </div>
         <ul className="divide-y divide-gray-100 dark:divide-gray-800">
           {data.recentActivity.length === 0 ? (
@@ -137,7 +158,9 @@ export default function AdminStatsPage() {
             data.recentActivity.map((a) => (
               <li key={a.id} className="flex gap-3 px-5 py-4">
                 <Avatar className="h-9 w-9">
-                  <AvatarImage src="" alt="" />
+                  {isActivityAvatar(a.userAvatar) ? (
+                    <AvatarImage src={resolveAvatarUrl(a.userAvatar) ?? a.userAvatar} alt="" />
+                  ) : null}
                   <AvatarFallback className="bg-indigo-100 text-xs text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200">
                     {(a.userName ?? "?").slice(0, 2).toUpperCase()}
                   </AvatarFallback>

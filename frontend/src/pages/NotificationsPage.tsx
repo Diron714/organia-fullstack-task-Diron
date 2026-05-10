@@ -11,6 +11,8 @@ import type { Notification } from "@/types/notification.types";
 import type { PagedResponse } from "@/types/api.types";
 import { cn } from "@/lib/utils";
 import { usePageTitle } from "@/hooks/usePageTitle";
+import { parseApiError } from "@/utils/errorUtils";
+import { Button } from "@/components/ui/button";
 
 export default function NotificationsPage() {
   usePageTitle("Notifications | Organia");
@@ -18,7 +20,7 @@ export default function NotificationsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const page = Number(searchParams.get("page") ?? "0");
 
-  const { data, isLoading } = useQuery({
+  const { data, isPending, isError, error, refetch } = useQuery({
     queryKey: ["notifications", { page, size: 20 }],
     queryFn: () =>
       getNotifications({ page, size: 20 }).then((r) => r.data as PagedResponse<Notification>)
@@ -30,8 +32,20 @@ export default function NotificationsPage() {
     await queryClient.invalidateQueries({ queryKey: ["notifications"] });
   };
 
-  if (isLoading) {
+  if (isPending) {
     return <PageSkeleton variant="table" />;
+  }
+
+  if (isError) {
+    return (
+      <div className="mx-auto max-w-3xl space-y-4 px-4 py-8 md:px-6">
+        <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">Notifications</h1>
+        <p className="text-sm text-red-600 dark:text-red-400">{parseApiError(error).message}</p>
+        <Button type="button" className="bg-indigo-600 hover:bg-indigo-700" onClick={() => void refetch()}>
+          Retry
+        </Button>
+      </div>
+    );
   }
 
   return (
@@ -55,7 +69,7 @@ export default function NotificationsPage() {
         <div className="flex flex-col items-center rounded-xl border border-dashed border-gray-200 py-16 text-center dark:border-gray-700">
           <Bell className="mb-4 h-12 w-12 text-gray-300 dark:text-gray-600" strokeWidth={1.25} />
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white">You&apos;re all caught up</h3>
-          <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">No new notifications</p>
+          <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">No notifications yet</p>
         </div>
       ) : (
         <ul className="space-y-3">

@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { Calendar, MoreHorizontal } from "lucide-react";
+import { Calendar, Clock, MessageSquare, MoreHorizontal, RotateCw } from "lucide-react";
 import type { Task, TaskStatus } from "@/types/task.types";
 import ConfirmDialog from "@/components/common/ConfirmDialog";
 import { Badge } from "@/components/ui/badge";
@@ -12,6 +12,16 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Select, SelectItem } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
+import LabelBadge from "@/components/tasks/LabelBadge";
+import { formatDuration } from "@/utils/dateUtils";
+import { getTaskCardPerson } from "@/utils/taskDisplay";
+import { resolveAvatarUrl } from "@/utils/mediaUrl";
+
+const STATUS_LABEL: Record<TaskStatus, string> = {
+  TODO: "Todo",
+  IN_PROGRESS: "In progress",
+  COMPLETED: "Completed"
+};
 
 function statusBadge(status: TaskStatus) {
   const map: Record<TaskStatus, string> = {
@@ -19,9 +29,16 @@ function statusBadge(status: TaskStatus) {
     IN_PROGRESS: "bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-200",
     COMPLETED: "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200"
   };
-  const label = status.replace("_", " ");
-  return <Badge className={cn("rounded-full text-xs font-medium", map[status])}>{label}</Badge>;
+  return (
+    <Badge className={cn("rounded-full text-xs font-medium", map[status])}>{STATUS_LABEL[status]}</Badge>
+  );
 }
+
+const PRIORITY_LABEL: Record<Task["priority"], string> = {
+  LOW: "Low",
+  MEDIUM: "Medium",
+  HIGH: "High"
+};
 
 function priorityBadge(priority: Task["priority"]) {
   const map = {
@@ -29,7 +46,9 @@ function priorityBadge(priority: Task["priority"]) {
     MEDIUM: "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-200",
     HIGH: "bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-200"
   };
-  return <Badge className={cn("rounded-full text-xs font-medium", map[priority])}>{priority}</Badge>;
+  return (
+    <Badge className={cn("rounded-full text-xs font-medium", map[priority])}>{PRIORITY_LABEL[priority]}</Badge>
+  );
 }
 
 export default function TaskCard({
@@ -42,14 +61,16 @@ export default function TaskCard({
   onStatus: (id: number, status: TaskStatus) => void;
 }) {
   const overdue = task.isOverdue;
+  const person = getTaskCardPerson(task);
+  const personAvatarSrc = person ? resolveAvatarUrl(person.avatar) : undefined;
 
   return (
     <div
       className={cn(
         "rounded-xl border p-5 transition-all duration-200 hover:border-gray-300 hover:shadow-md dark:hover:border-gray-600",
         overdue
-          ? "border-red-200 bg-red-50 dark:border-red-900 dark:bg-red-950/30"
-          : "border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900"
+          ? "border-2 border-red-400 bg-red-50 dark:border-red-600 dark:bg-red-950/30"
+          : "border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900"
       )}
     >
       <div className="flex items-start justify-between gap-2">
@@ -87,6 +108,34 @@ export default function TaskCard({
         <p className="mt-1 line-clamp-2 text-sm text-gray-500 dark:text-gray-400">{task.description}</p>
       ) : null}
 
+      {task.labels && task.labels.length > 0 ? (
+        <div className="mt-2 flex flex-wrap items-center gap-1.5">
+          {task.labels.slice(0, 3).map((l) => (
+            <LabelBadge key={l.id} label={l} />
+          ))}
+          {task.labels.length > 3 ? (
+            <span className="text-xs text-gray-500 dark:text-gray-400">
+              +{task.labels.length - 3} more
+            </span>
+          ) : null}
+        </div>
+      ) : null}
+
+      <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-gray-500 dark:text-gray-400">
+        {task.commentCount != null && task.commentCount > 0 ? (
+          <span className="flex items-center gap-1">
+            <MessageSquare className="h-3.5 w-3.5" />
+            {task.commentCount}
+          </span>
+        ) : null}
+        {task.totalTrackedSeconds != null && task.totalTrackedSeconds > 0 ? (
+          <span className="flex items-center gap-1">
+            <Clock className="h-3.5 w-3.5" />
+            {formatDuration(task.totalTrackedSeconds)}
+          </span>
+        ) : null}
+      </div>
+
       <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
         <div
           className={cn(
@@ -96,16 +145,19 @@ export default function TaskCard({
         >
           <Calendar className="h-4 w-4 shrink-0" />
           {task.dueDate ?? "No due date"}
+          {task.isRecurring ? (
+            <span title="Recurring task" className="inline-flex">
+              <RotateCw className="h-3.5 w-3.5 text-gray-400" aria-hidden />
+            </span>
+          ) : null}
         </div>
-        {task.assignedToName ? (
+        {person ? (
           <div className="flex items-center gap-2">
             <Avatar className="h-6 w-6">
-              <AvatarImage src={task.assignedToAvatar} alt="" />
-              <AvatarFallback className="text-[10px]">
-                {task.assignedToName.slice(0, 2).toUpperCase()}
-              </AvatarFallback>
+              {personAvatarSrc ? <AvatarImage src={personAvatarSrc} alt="" /> : null}
+              <AvatarFallback className="text-[10px]">{person.label.slice(0, 2).toUpperCase()}</AvatarFallback>
             </Avatar>
-            <span className="text-xs text-gray-600 dark:text-gray-400">{task.assignedToName}</span>
+            <span className="text-xs text-gray-600 dark:text-gray-400">{person.label}</span>
           </div>
         ) : null}
       </div>
@@ -131,6 +183,17 @@ export default function TaskCard({
           </button>
         </ConfirmDialog>
       </div>
+
+      {task.dependencyWarning ? (
+        <div className="mt-3 border-t border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-100">
+          {task.dependencyWarning}
+        </div>
+      ) : null}
+      {task.isBlocked && (task.blockedCount ?? 0) > 0 ? (
+        <div className="mt-3 border-t border-amber-200 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-200">
+          Blocked by {task.blockedCount} incomplete task(s)
+        </div>
+      ) : null}
     </div>
   );
 }

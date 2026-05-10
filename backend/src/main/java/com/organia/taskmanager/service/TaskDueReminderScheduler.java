@@ -10,19 +10,24 @@ import java.util.List;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 
 @Component
 public class TaskDueReminderScheduler {
   private final TaskRepository taskRepository;
   private final NotificationService notificationService;
+  private final MailService mailService;
 
-  public TaskDueReminderScheduler(TaskRepository taskRepository, NotificationService notificationService) {
+  public TaskDueReminderScheduler(
+      TaskRepository taskRepository, NotificationService notificationService, MailService mailService) {
     this.taskRepository = taskRepository;
     this.notificationService = notificationService;
+    this.mailService = mailService;
   }
 
   /** Daily at 08:00 server time — notify owners and assignees about tasks due tomorrow. */
   @Scheduled(cron = "0 0 8 * * *")
+  @Transactional
   public void remindTasksDueTomorrow() {
     LocalDate tomorrow = LocalDate.now().plusDays(1);
     Specification<Task> spec =
@@ -50,5 +55,6 @@ public class TaskDueReminderScheduler {
         "\"" + task.getTitle() + "\" is due on " + task.getDueDate() + ".",
         NotificationType.TASK_DUE,
         task.getId());
+    mailService.sendDueReminderEmail(user, task);
   }
 }

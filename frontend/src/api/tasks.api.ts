@@ -20,3 +20,5 @@ export const patchTaskStatus = (id: number, status: TaskStatus) =>
 export const deleteTask = (id: number) => api.delete(`/tasks/${id}`);
 
 export const getTaskActivity = (id: number) => api.get<TaskActivityItem[]>(`/tasks/${id}/activity`);
+
+export const exportTasksCsv = () => api.get<Blob>("/tasks/export", { responseType: "blob" });

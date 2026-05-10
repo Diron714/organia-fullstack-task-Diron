@@ -87,7 +87,7 @@ public class AuthService {
               userRepository.save(user);
               return otpService.generate(email, OtpType.EMAIL_VERIFY);
             });
-    mailService.sendOtpAsync(email, "Verify your Organia account", otp);
+    mailService.sendOtpAsync(email, "Verify your Organia account", otp, EmailOtpKind.REGISTER);
     return new MessageResponse("Verification email sent");
   }
 
@@ -97,6 +97,7 @@ public class AuthService {
     User user = userRepository.findByEmail(email).orElseThrow(() -> new ResourceNotFoundException("User not found"));
     user.setVerified(true);
     userRepository.save(user);
+    mailService.sendWelcomeEmailAsync(user);
 
     String access = jwtService.generateAccessToken(user.getEmail());
     String refresh = jwtService.generateRefreshToken(user.getEmail());
@@ -134,7 +135,7 @@ public class AuthService {
     String email = normalizeEmail(req.email());
     userRepository.findByEmail(email).ifPresent(u -> {
       String otp = otpService.generate(email, OtpType.PASSWORD_RESET);
-      mailService.sendOtp(email, "Reset your Organia password", otp);
+      mailService.sendOtpAsync(email, "Reset your Organia password", otp, EmailOtpKind.PASSWORD_RESET);
     });
     return new MessageResponse("Reset OTP sent if email exists");
   }
@@ -151,7 +152,11 @@ public class AuthService {
       }
     }
     String otp = otpService.generate(email, req.otpType());
-    mailService.sendOtp(email, "Organia OTP", otp);
+    if (req.otpType() == OtpType.PASSWORD_RESET) {
+      mailService.sendOtpAsync(email, "Reset your Organia password", otp, EmailOtpKind.PASSWORD_RESET);
+    } else {
+      mailService.sendOtpAsync(email, "Verify your Organia account", otp, EmailOtpKind.REGISTER);
+    }
     return new MessageResponse("OTP resent");
   }
 
