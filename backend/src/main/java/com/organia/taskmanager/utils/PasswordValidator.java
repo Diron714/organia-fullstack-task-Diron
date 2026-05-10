@@ -17,8 +17,8 @@ public final class PasswordValidator {
     if (!password.matches(".*\\d.*")) {
       throw new BadRequestException("Password must contain at least one digit");
     }
-    if (!password.matches(".*[!@#$%^&*].*")) {
-      throw new BadRequestException("Password must contain at least one special character (!@#$%^&*)");
+    if (!password.matches(".*[^A-Za-z0-9].*")) {
+      throw new BadRequestException("Password must contain at least one special character");
     }
   }
 }

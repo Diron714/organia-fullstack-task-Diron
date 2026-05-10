@@ -2,8 +2,13 @@ import axios from "axios";
 import { useAuthStore } from "@/store/authStore";
 import type { ErrorResponse } from "@/types/api.types";
 
+/** In dev, use Vite proxy (/api → localhost:8080) so cookies and ports stay consistent. */
+const defaultBase =
+  import.meta.env.VITE_API_BASE_URL ??
+  (import.meta.env.DEV ? "/api" : "http://localhost:8080/api");
+
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL,
+  baseURL: defaultBase,
   withCredentials: true
 });
 

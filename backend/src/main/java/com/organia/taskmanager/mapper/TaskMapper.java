@@ -15,13 +15,20 @@ public interface TaskMapper {
         t.getOwner() == null ? null : t.getOwner().getName(),
         t.getAssignedTo() == null ? null : t.getAssignedTo().getName(),
         t.getAssignedTo() == null ? null : t.getAssignedTo().getAvatarUrl(),
+        t.getAssignedTo() == null ? null : t.getAssignedTo().getId(),
         activityCount,
         t.getCreatedAt(), t.getUpdatedAt());
   }
 
   default TaskActivityResponse toActivityResponse(TaskActivity activity) {
-    return new TaskActivityResponse(activity.getId(), activity.getAction(), activity.getFieldChanged(),
-        activity.getOldValue(), activity.getNewValue(),
-        activity.getUser() == null ? null : activity.getUser().getName(), activity.getCreatedAt());
+    return new TaskActivityResponse(
+        activity.getId(),
+        activity.getAction(),
+        activity.getFieldChanged(),
+        activity.getOldValue(),
+        activity.getNewValue(),
+        activity.getUser() == null ? null : activity.getUser().getName(),
+        activity.getUser() == null ? null : activity.getUser().getAvatarUrl(),
+        activity.getCreatedAt());
   }
 }

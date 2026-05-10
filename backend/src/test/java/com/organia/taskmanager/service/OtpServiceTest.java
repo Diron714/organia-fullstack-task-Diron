@@ -22,7 +22,9 @@ class OtpServiceTest {
   OtpService service;
 
   @BeforeEach
-  void setup() { service = new OtpService(repository); }
+  void setup() {
+    service = new OtpService(repository, 10, 3);
+  }
 
   @Test
   void generate_success() {
@@ -39,8 +41,8 @@ class OtpServiceTest {
 
   @Test
   void validate_success() {
-    OtpToken token = OtpToken.builder().email("a@b.com").otpCode("123456").otpType(OtpType.EMAIL_VERIFY).expiresAt(Instant.now().plusSeconds(60)).isUsed(false).build();
-    when(repository.findTopByEmailAndOtpTypeAndOtpCodeAndIsUsedFalseOrderByCreatedAtDesc("a@b.com", OtpType.EMAIL_VERIFY, "123456")).thenReturn(Optional.of(token));
+    OtpToken token = OtpToken.builder().email("a@b.com").otpCode("123456").otpType(OtpType.EMAIL_VERIFY).expiresAt(Instant.now().plusSeconds(60)).used(false).build();
+    when(repository.findTopByEmailAndOtpTypeAndOtpCodeAndUsedFalseOrderByCreatedAtDesc("a@b.com", OtpType.EMAIL_VERIFY, "123456")).thenReturn(Optional.of(token));
     when(repository.save(any(OtpToken.class))).thenReturn(token);
     OtpToken result = service.validate("a@b.com", "123456", OtpType.EMAIL_VERIFY);
     assertTrue(result.isUsed());
@@ -48,8 +50,8 @@ class OtpServiceTest {
 
   @Test
   void validate_expired() {
-    OtpToken token = OtpToken.builder().email("a@b.com").otpCode("123456").otpType(OtpType.EMAIL_VERIFY).expiresAt(Instant.now().minusSeconds(60)).isUsed(false).build();
-    when(repository.findTopByEmailAndOtpTypeAndOtpCodeAndIsUsedFalseOrderByCreatedAtDesc("a@b.com", OtpType.EMAIL_VERIFY, "123456")).thenReturn(Optional.of(token));
+    OtpToken token = OtpToken.builder().email("a@b.com").otpCode("123456").otpType(OtpType.EMAIL_VERIFY).expiresAt(Instant.now().minusSeconds(60)).used(false).build();
+    when(repository.findTopByEmailAndOtpTypeAndOtpCodeAndUsedFalseOrderByCreatedAtDesc("a@b.com", OtpType.EMAIL_VERIFY, "123456")).thenReturn(Optional.of(token));
     assertThrows(BadRequestException.class, () -> service.validate("a@b.com", "123456", OtpType.EMAIL_VERIFY));
   }
 }

@@ -20,6 +20,6 @@ describe("OtpInput", () => {
       clipboardData: { getData: () => "123456" }
     });
     expect(onChange).toHaveBeenCalledWith("123456");
-    expect(onComplete).toHaveBeenCalled();
+    expect(onComplete).toHaveBeenCalledWith("123456");
   });
 });

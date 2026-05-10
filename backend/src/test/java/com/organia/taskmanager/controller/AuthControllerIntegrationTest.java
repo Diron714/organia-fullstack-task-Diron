@@ -64,10 +64,15 @@ class AuthControllerIntegrationTest {
 
   @Test
   @Sql(scripts = "classpath:cleanup.sql", executionPhase = Sql.ExecutionPhase.BEFORE_TEST_METHOD)
-  void resendOtp_shouldReturn429AfterThreeAttempts() throws Exception {
-    String payload = "{\"email\":\"limit@demo.com\",\"otpType\":\"EMAIL_VERIFY\"}";
+  void resendOtp_shouldReturn429WhenHourlyLimitExceeded() throws Exception {
+    mockMvc
+        .perform(
+            post("/api/auth/register")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"name\":\"Limit\",\"email\":\"limit@demo.com\",\"password\":\"Password1!\"}"))
+        .andExpect(status().isCreated());
 
-    mockMvc.perform(post("/api/auth/resend-otp").contentType(MediaType.APPLICATION_JSON).content(payload)).andExpect(status().isOk());
+    String payload = "{\"email\":\"limit@demo.com\",\"otpType\":\"EMAIL_VERIFY\"}";
     mockMvc.perform(post("/api/auth/resend-otp").contentType(MediaType.APPLICATION_JSON).content(payload)).andExpect(status().isOk());
     mockMvc.perform(post("/api/auth/resend-otp").contentType(MediaType.APPLICATION_JSON).content(payload)).andExpect(status().isOk());
     mockMvc.perform(post("/api/auth/resend-otp").contentType(MediaType.APPLICATION_JSON).content(payload)).andExpect(status().isTooManyRequests());
