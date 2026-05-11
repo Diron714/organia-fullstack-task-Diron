@@ -10,6 +10,7 @@ import com.organia.taskmanager.exception.ResourceNotFoundException;
 import com.organia.taskmanager.mapper.NotificationMapper;
 import com.organia.taskmanager.repository.NotificationRepository;
 import java.time.Instant;
+import java.util.Objects;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
@@ -25,7 +26,19 @@ public class NotificationService {
     this.mapper = mapper;
   }
 
-  public void create(User user, String title, String message, NotificationType type, Long relatedTaskId) {
+  /**
+   * @param actorUserId user who triggered the event; no notification if recipient is the same user
+   */
+  public void create(
+      User user,
+      String title,
+      String message,
+      NotificationType type,
+      Long relatedTaskId,
+      Long actorUserId) {
+    if (actorUserId != null && Objects.equals(user.getId(), actorUserId)) {
+      return;
+    }
     repository.save(
         Notification.builder()
             .user(user)
@@ -50,7 +63,8 @@ public class NotificationService {
             "Task updated",
             "Task status changed",
             NotificationType.TASK_UPDATED,
-            task.getId());
+            task.getId(),
+            actorId);
       }
       return;
     }
@@ -60,7 +74,8 @@ public class NotificationService {
           "Task updated",
           "Task status changed",
           NotificationType.TASK_UPDATED,
-          task.getId());
+          task.getId(),
+          actorId);
     }
     if (owner != null && !owner.getId().equals(actorId)) {
       create(
@@ -68,7 +83,8 @@ public class NotificationService {
           "Task updated",
           "Task status changed",
           NotificationType.TASK_UPDATED,
-          task.getId());
+          task.getId(),
+          actorId);
     }
   }
 

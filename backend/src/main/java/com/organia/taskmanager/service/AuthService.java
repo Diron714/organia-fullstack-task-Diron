@@ -115,7 +115,9 @@ public class AuthService {
   public AuthResponse login(LoginRequest req, HttpServletResponse response) {
     String email = normalizeEmail(req.email());
     User user = userRepository.findByEmail(email).orElseThrow(() -> new UnauthorizedException("Invalid credentials"));
-    if (!user.isVerified()) throw new UnauthorizedException("Email not verified");
+    if (!user.isVerified()) {
+      throw new UnauthorizedException("Email not verified. Please check your inbox.");
+    }
     if (!passwordEncoder.matches(req.password(), user.getPassword())) throw new UnauthorizedException("Invalid credentials");
 
     String access = jwtService.generateAccessToken(user.getEmail());

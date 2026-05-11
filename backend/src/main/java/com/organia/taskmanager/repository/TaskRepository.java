@@ -129,4 +129,10 @@ public interface TaskRepository extends JpaRepository<Task, Long>, JpaSpecificat
       nativeQuery = true)
   long countCompletedBetween(
       @Param("uid") Long uid, @Param("start") LocalDate start, @Param("end") LocalDate end);
+
+  @Query(
+      "SELECT DISTINCT t FROM Task t LEFT JOIN FETCH t.labels LEFT JOIN FETCH t.owner LEFT JOIN FETCH t.assignedTo "
+          + "WHERE t.owner.id = :uid OR (t.assignedTo IS NOT NULL AND t.assignedTo.id = :uid) "
+          + "ORDER BY t.createdAt DESC")
+  List<Task> findAllVisibleToUserWithLabelsFetched(@Param("uid") Long uid);
 }

@@ -241,7 +241,8 @@ public class TaskService {
           "Task assigned",
           "A task was assigned to you",
           NotificationType.TASK_ASSIGNED,
-          task.getId());
+          task.getId(),
+          current.getId());
     }
     return toResponse(task);
   }
@@ -408,9 +409,7 @@ public class TaskService {
 
   @Transactional(readOnly = true)
   public byte[] exportTasksToCsv(User user) {
-    Specification<Task> spec = ownedOrAssigned(user);
-    Sort sort = Sort.by(Sort.Direction.DESC, "createdAt");
-    List<Task> tasks = taskRepository.findAll(spec, sort);
+    List<Task> tasks = taskRepository.findAllVisibleToUserWithLabelsFetched(user.getId());
 
     StringBuilder csv = new StringBuilder();
     csv.append(

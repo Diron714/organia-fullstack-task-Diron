@@ -32,9 +32,7 @@ public class ProductivityService {
         (int) taskRepository.countCompletedBetween(uid, thisWeekStart, thisWeekEnd);
 
     int weeklyScore =
-        tasksDueThisWeek == 0
-            ? (tasksCompletedThisWeek > 0 ? 100 : 0)
-            : Math.min(100, tasksCompletedThisWeek * 100 / tasksDueThisWeek);
+        tasksDueThisWeek == 0 ? 100 : Math.min(100, tasksCompletedThisWeek * 100 / tasksDueThisWeek);
 
     int lastWeekDue =
         (int) taskRepository.countByOwner_IdAndDueDateBetween(uid, lastWeekStart, lastWeekEnd);
@@ -42,9 +40,7 @@ public class ProductivityService {
         (int) taskRepository.countCompletedBetween(uid, lastWeekStart, lastWeekEnd);
 
     int lastWeekScore =
-        lastWeekDue == 0
-            ? (lastWeekCompleted > 0 ? 100 : 0)
-            : Math.min(100, lastWeekCompleted * 100 / lastWeekDue);
+        lastWeekDue == 0 ? 100 : Math.min(100, lastWeekCompleted * 100 / lastWeekDue);
 
     String trend =
         weeklyScore > lastWeekScore ? "UP" : weeklyScore < lastWeekScore ? "DOWN" : "SAME";

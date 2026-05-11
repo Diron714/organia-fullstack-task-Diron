@@ -1,4 +1,12 @@
+import { format, isValid, parseISO } from "date-fns";
 import type { LabelResponse } from "@/types/label.types";
+
+function toApiDateString(value: string | undefined): string | undefined {
+  if (!value?.trim()) return undefined;
+  const d = parseISO(value.trim());
+  if (!isValid(d)) return value.trim();
+  return format(d, "yyyy-MM-dd");
+}
 
 export type TaskStatus = "TODO" | "IN_PROGRESS" | "COMPLETED";
 export type TaskPriority = "LOW" | "MEDIUM" | "HIGH";
@@ -81,11 +89,11 @@ export function toCreateTaskBody(values: TaskFormValues, isAdmin: boolean): Reco
     description: values.description?.trim() ? values.description : undefined,
     status: values.status,
     priority: values.priority,
-    dueDate: values.dueDate?.trim() ? values.dueDate : undefined,
+    dueDate: toApiDateString(values.dueDate),
     recurrenceType: values.recurrenceType ?? "NONE",
     recurrenceEndDate:
       values.recurrenceType && values.recurrenceType !== "NONE" && values.recurrenceEndDate?.trim()
-        ? values.recurrenceEndDate
+        ? toApiDateString(values.recurrenceEndDate)
         : undefined
   };
   if (isAdmin && values.assignedToId?.trim()) {
@@ -103,11 +111,11 @@ export function toUpdateTaskBody(values: TaskFormValues): Record<string, unknown
     description: values.description?.trim() ? values.description : undefined,
     status: values.status,
     priority: values.priority,
-    dueDate: values.dueDate?.trim() ? values.dueDate : undefined,
+    dueDate: toApiDateString(values.dueDate),
     recurrenceType: values.recurrenceType ?? "NONE",
     recurrenceEndDate:
       values.recurrenceType && values.recurrenceType !== "NONE" && values.recurrenceEndDate?.trim()
-        ? values.recurrenceEndDate
+        ? toApiDateString(values.recurrenceEndDate)
         : undefined
   };
 }

@@ -1,9 +1,9 @@
 import { useState } from "react";
-import { Link, useLocation, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate, type Location } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import toast from "react-hot-toast";
 import { Mail, Lock, Eye, EyeOff, Loader2 } from "lucide-react";
-import { login } from "@/api/auth.api";
+import { login as loginApi } from "@/api/auth.api";
 import { useAuthStore } from "@/store/authStore";
 import AuthSplitLayout from "@/components/auth/AuthSplitLayout";
 import { applyServerErrors } from "@/utils/errorUtils";
@@ -29,11 +29,11 @@ export default function LoginPage() {
   } = useForm<LoginFormValues>({
     defaultValues: { email: "", password: "", rememberMe: false }
   });
-  const setAuth = useAuthStore((s) => s.setAuth);
+  const login = useAuthStore((s) => s.login);
   const navigate = useNavigate();
   const location = useLocation();
-  const redirectTo =
-    (location.state as { from?: { pathname?: string } } | null)?.from?.pathname ?? "/dashboard";
+  const from =
+    (location.state as { from?: Location } | null)?.from?.pathname ?? "/dashboard";
 
   return (
     <AuthSplitLayout>
@@ -44,10 +44,10 @@ export default function LoginPage() {
         className="mt-8 space-y-4"
         onSubmit={handleSubmit(async (values) => {
           try {
-            const res = await login(values);
-            setAuth(res.data.accessToken, res.data.user);
+            const res = await loginApi(values);
+            login(res.data.user, res.data.accessToken);
             toast.success("Signed in successfully");
-            navigate(redirectTo, { replace: true });
+            navigate(from, { replace: true });
           } catch (error) {
             toast.error(applyServerErrors(error, setError));
           }

@@ -9,4 +9,6 @@ import java.util.Optional;
 public interface OtpTokenRepository extends JpaRepository<OtpToken, Long> {
   Optional<OtpToken> findTopByEmailAndOtpTypeAndOtpCodeAndUsedFalseOrderByCreatedAtDesc(String email, OtpType otpType, String otpCode);
   long countByEmailAndOtpTypeAndCreatedAtAfter(String email, OtpType otpType, Instant createdAt);
+
+  long countByEmailAndCreatedAtAfter(String email, Instant createdAt);
 }

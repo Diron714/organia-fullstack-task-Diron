@@ -113,7 +113,7 @@ public class AdminService {
 
   public MessageResponse deleteUser(Long id, User actor) {
     if (id.equals(actor.getId())) {
-      throw new ForbiddenException("You cannot delete your own account");
+      throw new BadRequestException("You cannot delete your own account");
     }
     User target = userRepository.findById(id).orElseThrow(() -> new ResourceNotFoundException("User not found"));
     if (target.getRole() == Role.ADMIN) {
@@ -193,7 +193,8 @@ public class AdminService {
           "Task assigned",
           "A task was assigned to you",
           NotificationType.TASK_ASSIGNED,
-          task.getId());
+          task.getId(),
+          admin.getId());
     }
     return taskMapper.toResponse(task, computeOverdue(task), taskActivityService.count(task));
   }
