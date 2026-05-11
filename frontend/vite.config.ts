@@ -1,8 +1,8 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
-import path from "node:path";
+import path from "path";
 
-const apiProxy = {
+const devProxy = {
   "/api": {
     target: "http://localhost:8080",
     changeOrigin: true
@@ -13,8 +13,8 @@ const apiProxy = {
   },
   "/ws": {
     target: "http://localhost:8080",
-    changeOrigin: true,
-    ws: true
+    ws: true,
+    changeOrigin: true
   }
 };
 
@@ -36,9 +36,33 @@ export default defineConfig({
       }
     }
   ],
-  resolve: { alias: { "@": path.resolve(__dirname, "./src") } },
-  server: { proxy: apiProxy },
-  preview: { proxy: apiProxy },
+  base: "/",
+  resolve: {
+    alias: {
+      "@": path.resolve(__dirname, "./src")
+    }
+  },
+  server: {
+    port: 5173,
+    proxy: devProxy
+  },
+  preview: {
+    proxy: devProxy
+  },
+  build: {
+    outDir: "dist",
+    sourcemap: false,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          vendor: ["react", "react-dom", "react-router-dom"],
+          ui: ["@radix-ui/react-dialog", "@radix-ui/react-dropdown-menu"],
+          charts: ["recharts"],
+          dnd: ["@dnd-kit/core", "@dnd-kit/sortable"]
+        }
+      }
+    }
+  },
   test: {
     environment: "jsdom",
     setupFiles: "./src/test/setup.ts"

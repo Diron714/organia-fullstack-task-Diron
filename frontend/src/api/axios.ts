@@ -2,13 +2,11 @@ import axios from "axios";
 import { useAuthStore } from "@/store/authStore";
 import type { ErrorResponse } from "@/types/api.types";
 
-/** In dev, use Vite proxy (/api → localhost:8080) so cookies and ports stay consistent. */
-const defaultBase =
-  import.meta.env.VITE_API_BASE_URL ??
-  (import.meta.env.DEV ? "/api" : "http://localhost:8080/api");
+const BASE_URL =
+  import.meta.env.VITE_API_BASE_URL ?? (import.meta.env.DEV ? "/api" : "");
 
-const api = axios.create({
-  baseURL: defaultBase,
+const axiosInstance = axios.create({
+  baseURL: BASE_URL,
   withCredentials: true
 });
 
@@ -23,13 +21,27 @@ function isAuthPublicPath(url: string): boolean {
   );
 }
 
-api.interceptors.request.use((config) => {
+let isRefreshing = false;
+let failedQueue: Array<{
+  resolve: (value: unknown) => void;
+  reject: (reason: unknown) => void;
+}> = [];
+
+function processQueue(error: Error | null, token: string | null = null) {
+  failedQueue.forEach((prom) => {
+    if (error) prom.reject(error);
+    else prom.resolve(token);
+  });
+  failedQueue = [];
+}
+
+axiosInstance.interceptors.request.use((config) => {
   const token = useAuthStore.getState().token;
   if (token) config.headers.Authorization = `Bearer ${token}`;
   return config;
 });
 
-api.interceptors.response.use(
+axiosInstance.interceptors.response.use(
   (response) => response,
   async (error) => {
     const originalRequest = error.config as {
@@ -39,24 +51,37 @@ api.interceptors.response.use(
     };
     const reqUrl = typeof originalRequest.url === "string" ? originalRequest.url : "";
 
-    if (reqUrl.includes("/auth/refresh")) {
-      return Promise.reject(error);
-    }
-
-    if (error.response?.status === 401 && !originalRequest._retry) {
-      if (isAuthPublicPath(reqUrl)) {
-        return Promise.reject(error);
+    if (
+      error.response?.status === 401 &&
+      !originalRequest._retry &&
+      !reqUrl.includes("/auth/refresh") &&
+      !isAuthPublicPath(reqUrl)
+    ) {
+      if (isRefreshing) {
+        return new Promise((resolve, reject) => {
+          failedQueue.push({ resolve, reject });
+        }).then((token) => {
+          originalRequest.headers.Authorization = `Bearer ${token as string}`;
+          return axiosInstance(originalRequest);
+        });
       }
+
       originalRequest._retry = true;
+      isRefreshing = true;
       try {
-        const refresh = await api.post("/auth/refresh");
-        useAuthStore.getState().setToken(refresh.data.accessToken);
-        originalRequest.headers.Authorization = `Bearer ${refresh.data.accessToken}`;
-        return api(originalRequest);
-      } catch {
+        const response = await axiosInstance.post("/auth/refresh");
+        const newToken = response.data.accessToken as string;
+        useAuthStore.getState().setToken(newToken);
+        processQueue(null, newToken);
+        originalRequest.headers.Authorization = `Bearer ${newToken}`;
+        return axiosInstance(originalRequest);
+      } catch (refreshError) {
+        processQueue(refreshError as Error, null);
         useAuthStore.getState().logout();
         window.location.href = "/login";
-        return Promise.reject(error);
+        return Promise.reject(refreshError);
+      } finally {
+        isRefreshing = false;
       }
     }
 
@@ -70,4 +95,4 @@ api.interceptors.response.use(
   }
 );
 
-export default api;
+export default axiosInstance;

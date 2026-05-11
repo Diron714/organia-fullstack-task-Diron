@@ -28,11 +28,9 @@ public class OtpService {
 
   public String generate(String email, OtpType type) {
     email = normalizeEmail(email);
-    long count =
-        otpTokenRepository.countByEmailAndOtpTypeAndCreatedAtAfter(
-            email, type, Instant.now().minusSeconds(3600));
+    long count = otpTokenRepository.countByEmailAndCreatedAtAfter(email, Instant.now().minusSeconds(3600));
     if (count >= maxOtpPerEmailPerHour) {
-      throw new RateLimitException("OTP limit reached for this email");
+      throw new RateLimitException("Too many OTP requests");
     }
     String otp = String.format("%06d", new Random().nextInt(1_000_000));
     otpTokenRepository.save(

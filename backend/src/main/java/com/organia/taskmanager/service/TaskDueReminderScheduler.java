@@ -54,7 +54,8 @@ public class TaskDueReminderScheduler {
         "Task due tomorrow",
         "\"" + task.getTitle() + "\" is due on " + task.getDueDate() + ".",
         NotificationType.TASK_DUE,
-        task.getId());
+        task.getId(),
+        null);
     mailService.sendDueReminderEmail(user, task);
   }
 }

@@ -2,7 +2,7 @@ INSERT INTO users (name, email, password, role, is_verified)
 VALUES (
   'Admin User',
   'admin@organia.com',
-  '$2a$12$In3nm19dlh.bGYhAs3OxtOmy7esh0vYng/VelL6xLtDf9waXP96Hm',
+  '$2a$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewdBPj/RvAGE5erm',
   'ADMIN',
   TRUE
 );

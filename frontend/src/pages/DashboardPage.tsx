@@ -71,7 +71,12 @@ export default function DashboardPage() {
     ...(overdueOnly ? { overdueOnly: true } : {})
   });
 
-  const { data: dash, isPending: dashPending } = useTaskDashboard();
+  const {
+    data: dash,
+    isPending: dashPending,
+    isError: dashIsError,
+    refetch: refetchDash
+  } = useTaskDashboard();
 
   const tasks = tasksQuery.data?.content ?? [];
   const stats = dash;
@@ -120,18 +125,14 @@ export default function DashboardPage() {
     overdueOnly;
 
   const updateParams = (next: Partial<Record<string, string>>) => {
-    const merged = {
-      status,
-      priority,
-      q: qRaw,
-      sort,
-      direction,
-      page: String(page),
-      labelId,
-      overdueOnly: overdueOnly ? "true" : "",
-      ...next
-    };
-    setSearchParams(Object.fromEntries(Object.entries(merged).filter(([, value]) => value !== "")));
+    setSearchParams((prev) => {
+      const n = new URLSearchParams(prev);
+      for (const [key, value] of Object.entries(next)) {
+        if (value === "" || value == null) n.delete(key);
+        else n.set(key, value);
+      }
+      return n;
+    });
   };
 
   const handleExport = async () => {
@@ -161,6 +162,21 @@ export default function DashboardPage() {
 
   if (tasksQuery.isPending || dashPending) {
     return <PageSkeleton variant="dashboard" />;
+  }
+
+  if (dashIsError) {
+    return (
+      <div className="flex h-64 flex-col items-center justify-center gap-4 px-4">
+        <p className="text-red-500 dark:text-red-400">Failed to load data</p>
+        <button
+          type="button"
+          onClick={() => void refetchDash()}
+          className="rounded-lg bg-indigo-600 px-4 py-2 text-white hover:bg-indigo-700"
+        >
+          Try again
+        </button>
+      </div>
+    );
   }
 
   const tabs: { label: string; value: string }[] = [

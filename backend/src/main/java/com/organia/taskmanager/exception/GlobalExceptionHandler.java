@@ -2,6 +2,8 @@ package com.organia.taskmanager.exception;
 
 import com.organia.taskmanager.dto.response.ErrorResponse;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.ConstraintViolation;
+import jakarta.validation.ConstraintViolationException;
 import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
@@ -31,8 +33,35 @@ public class GlobalExceptionHandler {
       fields.put(e.getField(), e.getDefaultMessage());
     }
     return ResponseEntity.badRequest()
-        .body(new ErrorResponse(Instant.now().toString(), 400, "Bad Request", "Validation failed",
-            req.getRequestURI(), fields));
+        .body(
+            new ErrorResponse(
+                Instant.now().toString(),
+                400,
+                "Bad Request",
+                "Validation failed",
+                req.getRequestURI(),
+                fields));
+  }
+
+  @ExceptionHandler(ConstraintViolationException.class)
+  public ResponseEntity<ErrorResponse> handleConstraintViolation(
+      ConstraintViolationException ex, HttpServletRequest req) {
+    Map<String, String> fields = new HashMap<>();
+    for (ConstraintViolation<?> v : ex.getConstraintViolations()) {
+      String path = v.getPropertyPath().toString();
+      int dot = path.lastIndexOf('.');
+      String field = dot >= 0 ? path.substring(dot + 1) : path;
+      fields.put(field, v.getMessage());
+    }
+    return ResponseEntity.badRequest()
+        .body(
+            new ErrorResponse(
+                Instant.now().toString(),
+                400,
+                "Bad Request",
+                "Validation failed",
+                req.getRequestURI(),
+                fields));
   }
 
   @ExceptionHandler(ResourceNotFoundException.class)
@@ -67,7 +96,7 @@ public class GlobalExceptionHandler {
 
   @ExceptionHandler(HttpMessageNotReadableException.class)
   public ResponseEntity<ErrorResponse> notReadable(HttpMessageNotReadableException ex, HttpServletRequest req) {
-    return build(400, "Bad Request", "Malformed or unreadable request body", req.getRequestURI());
+    return build(400, "Bad Request", "Invalid request body", req.getRequestURI());
   }
 
   @ExceptionHandler(MissingServletRequestParameterException.class)
@@ -79,11 +108,7 @@ public class GlobalExceptionHandler {
   @ExceptionHandler(MethodArgumentTypeMismatchException.class)
   public ResponseEntity<ErrorResponse> typeMismatch(
       MethodArgumentTypeMismatchException ex, HttpServletRequest req) {
-    return build(
-        400,
-        "Bad Request",
-        "Invalid value for parameter " + ex.getName(),
-        req.getRequestURI());
+    return build(400, "Bad Request", "Invalid parameter type", req.getRequestURI());
   }
 
   @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
@@ -124,7 +149,7 @@ public class GlobalExceptionHandler {
     log.error("SMTP send failed: {}", detail);
     return build(
         503,
-        "Email delivery failed",
+        "Service Unavailable",
         "Could not send email. Check MAIL_USERNAME and MAIL_PASSWORD (Gmail app password), and smtp.gmail.com:587. "
             + "If you just registered, your account may already exist — open Verify email and tap Resend code. "
             + "Details: "
@@ -135,11 +160,7 @@ public class GlobalExceptionHandler {
   @ExceptionHandler(Exception.class)
   public ResponseEntity<ErrorResponse> generic(Exception ex, HttpServletRequest req) {
     log.error("Unhandled exception on {}", req.getRequestURI(), ex);
-    return build(
-        500,
-        "Internal Server Error",
-        "Something went wrong. Please try again.",
-        req.getRequestURI());
+    return build(500, "Internal Server Error", "An unexpected error occurred", req.getRequestURI());
   }
 
   private ResponseEntity<ErrorResponse> build(int status, String error, String message, String path) {

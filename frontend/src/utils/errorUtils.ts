@@ -1,3 +1,4 @@
+import axios from "axios";
 import type { AxiosError } from "axios";
 import type { FieldValues, Path, UseFormSetError } from "react-hook-form";
 import type { ErrorResponse } from "@/types/api.types";
@@ -19,11 +20,18 @@ export function parseApiError(error: unknown): ErrorResponse {
   };
 }
 
-export function applyServerErrors<T extends FieldValues>(error: unknown, setError: UseFormSetError<T>): string {
-  const parsed = parseApiError(error);
-  const fields = parsed.fieldErrors ?? {};
-  Object.entries(fields).forEach(([key, message]) => {
-    setError(key as Path<T>, { type: "server", message: String(message) });
-  });
-  return parsed.message || "Request failed";
+export function applyServerErrors<T extends FieldValues>(
+  error: unknown,
+  setError: UseFormSetError<T>
+): string {
+  if (axios.isAxiosError(error)) {
+    const data = error.response?.data as ErrorResponse | undefined;
+    if (data?.fieldErrors) {
+      Object.entries(data.fieldErrors).forEach(([field, message]) => {
+        setError(field as Path<T>, { type: "server", message: message as string });
+      });
+    }
+    return data?.message || "An error occurred. Please try again.";
+  }
+  return "Network error. Please check your connection.";
 }
