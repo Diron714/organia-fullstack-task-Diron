@@ -48,6 +48,7 @@ public class MailService {
   private final int otpExpiryMinutes;
   private final String frontendUrl;
   private final String resendApiKey;
+  private final String brevoApiKey;
 
   private final HttpClient httpClient = HttpClient.newHttpClient();
   private final ObjectMapper objectMapper = new ObjectMapper();
@@ -58,28 +59,36 @@ public class MailService {
       @Value("${spring.mail.password}") String mailPassword,
       @Value("${app.otp.expiry-minutes:10}") int otpExpiryMinutes,
       @Value("${app.frontend.url:http://localhost:5173}") String frontendUrl,
-      @Value("${RESEND_API_KEY:}") String resendApiKey) {
+      @Value("${RESEND_API_KEY:}") String resendApiKey,
+      @Value("${BREVO_API_KEY:}") String brevoApiKey) {
     this.smtpSender = smtpSender;
     this.fromAddress = fromAddress;
     this.mailPassword = mailPassword;
     this.otpExpiryMinutes = otpExpiryMinutes;
     this.frontendUrl = frontendUrl.endsWith("/") ? frontendUrl.substring(0, frontendUrl.length() - 1) : frontendUrl;
     this.resendApiKey = resendApiKey == null ? "" : resendApiKey.trim();
+    this.brevoApiKey = brevoApiKey == null ? "" : brevoApiKey.trim();
   }
 
-  /** True when Resend API key is configured — preferred over SMTP on hosted platforms. */
+  /** Brevo is preferred — no domain verification required, sends to any recipient. */
+  private boolean useBrevo() {
+    return !brevoApiKey.isBlank();
+  }
+
   private boolean useResend() {
     return !resendApiKey.isBlank();
   }
 
   @PostConstruct
   void validateMailConfig() {
-    if (useResend()) {
+    if (useBrevo()) {
+      log.info("Mail: using Brevo HTTP API (BREVO_API_KEY is set) from {}.", fromAddress);
+    } else if (useResend()) {
       log.info("Mail: using Resend HTTP API (RESEND_API_KEY is set).");
     } else if (isPlaceholderMailConfig()) {
       log.warn(
-          "Mail is not configured. Set RESEND_API_KEY (recommended for Railway) "
-              + "or set MAIL_USERNAME + MAIL_PASSWORD for SMTP. OTP emails will fail until then.");
+          "Mail is not configured. Set BREVO_API_KEY (recommended) "
+              + "or RESEND_API_KEY, or MAIL_USERNAME + MAIL_PASSWORD for SMTP.");
     } else {
       log.info("Mail: using SMTP ({})", fromAddress);
     }
@@ -94,14 +103,14 @@ public class MailService {
   }
 
   private void assertMailReady() {
-    if (useResend()) return; // Resend is always ready when key is set
+    if (useBrevo() || useResend()) return;
     if (fromAddress == null || fromAddress.isBlank()) {
       throw new BadRequestException(
-          "Email is not configured: set RESEND_API_KEY on Railway, or set MAIL_USERNAME for SMTP.");
+          "Email is not configured: set BREVO_API_KEY on Railway, or MAIL_USERNAME for SMTP.");
     }
     if (isPlaceholderMailConfig()) {
       throw new BadRequestException(
-          "Email is not configured: set RESEND_API_KEY (recommended) or "
+          "Email is not configured: set BREVO_API_KEY (recommended) or "
               + "MAIL_USERNAME + MAIL_PASSWORD (Gmail App Password, 16 chars, no spaces).");
     }
   }
@@ -249,11 +258,44 @@ public class MailService {
    * otherwise falls back to JavaMailSender (SMTP — works on localhost, blocked on Railway).
    */
   private void sendHtml(String to, String subject, String html) throws Exception {
-    if (useResend()) {
+    if (useBrevo()) {
+      sendViaBrevo(to, subject, html);
+    } else if (useResend()) {
       sendViaResend(to, subject, html);
     } else {
       sendViaSmtp(to, subject, html);
     }
+  }
+
+  /**
+   * Brevo (Sendinblue) HTTP API — free tier, no domain verification required,
+   * can send to any recipient. Uses your verified sender email as the from address.
+   */
+  private void sendViaBrevo(String to, String subject, String html) throws Exception {
+    // fromAddress is your Gmail (verified sender on Brevo)
+    Map<String, Object> sender = Map.of("name", "Organia", "email", fromAddress.trim());
+    Map<String, Object> body = Map.of(
+        "sender", sender,
+        "to", List.of(Map.of("email", to)),
+        "subject", subject,
+        "htmlContent", html
+    );
+
+    String jsonBody = objectMapper.writeValueAsString(body);
+
+    HttpRequest request = HttpRequest.newBuilder()
+        .uri(URI.create("https://api.brevo.com/v3/smtp/email"))
+        .header("api-key", brevoApiKey)
+        .header("Content-Type", "application/json")
+        .POST(HttpRequest.BodyPublishers.ofString(jsonBody))
+        .build();
+
+    HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+
+    if (response.statusCode() < 200 || response.statusCode() >= 300) {
+      throw new RuntimeException("Brevo API error " + response.statusCode() + ": " + response.body());
+    }
+    log.debug("Brevo API response {}: {}", response.statusCode(), response.body());
   }
 
   /** Resend HTTP API — works on any host including Railway (uses port 443). */
