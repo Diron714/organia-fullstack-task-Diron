@@ -35,7 +35,7 @@ public class SecurityConfig {
                 e.authenticationEntryPoint(authenticationEntryPoint)
                     .accessDeniedHandler(accessDeniedHandler))
         .authorizeHttpRequests(a -> a
-            .requestMatchers("/actuator/health", "/actuator/health/**").permitAll()
+            .requestMatchers("/", "/actuator/health", "/actuator/health/**").permitAll()
             .requestMatchers("/uploads/**").permitAll()
             .requestMatchers("/ws", "/ws/**").permitAll()
             .requestMatchers("/api/auth/**", "/swagger-ui.html", "/swagger-ui/**", "/v3/api-docs/**").permitAll()
