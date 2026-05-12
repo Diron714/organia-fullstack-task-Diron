@@ -47,6 +47,7 @@ public class MailService {
   private final String mailPassword;
   private final int otpExpiryMinutes;
   private final String frontendUrl;
+  private final String sendGridApiKey;
   private final String resendApiKey;
   private final String brevoApiKey;
 
@@ -59,6 +60,7 @@ public class MailService {
       @Value("${spring.mail.password}") String mailPassword,
       @Value("${app.otp.expiry-minutes:10}") int otpExpiryMinutes,
       @Value("${app.frontend.url:http://localhost:5173}") String frontendUrl,
+      @Value("${SENDGRID_API_KEY:}") String sendGridApiKey,
       @Value("${RESEND_API_KEY:}") String resendApiKey,
       @Value("${BREVO_API_KEY:}") String brevoApiKey) {
     this.smtpSender = smtpSender;
@@ -66,11 +68,17 @@ public class MailService {
     this.mailPassword = mailPassword;
     this.otpExpiryMinutes = otpExpiryMinutes;
     this.frontendUrl = frontendUrl.endsWith("/") ? frontendUrl.substring(0, frontendUrl.length() - 1) : frontendUrl;
+    this.sendGridApiKey = sendGridApiKey == null ? "" : sendGridApiKey.trim();
     this.resendApiKey = resendApiKey == null ? "" : resendApiKey.trim();
     this.brevoApiKey = brevoApiKey == null ? "" : brevoApiKey.trim();
   }
 
-  /** Brevo is preferred — no domain verification required, sends to any recipient. */
+  /** SendGrid (Twilio) — preferred provider, free 100/day, single sender verify, no domain needed. */
+  private boolean useSendGrid() {
+    return !sendGridApiKey.isBlank();
+  }
+
+  /** Brevo — fallback, no domain verification required, sends to any recipient. */
   private boolean useBrevo() {
     return !brevoApiKey.isBlank();
   }
@@ -81,8 +89,10 @@ public class MailService {
 
   @PostConstruct
   void validateMailConfig() {
-    if (useBrevo()) {
-      log.info("Mail: using Brevo HTTP API (BREVO_API_KEY is set) from {}.", fromAddress);
+    if (useSendGrid()) {
+      log.info("Mail: using SendGrid (Twilio) HTTP API from {}.", fromAddress);
+    } else if (useBrevo()) {
+      log.info("Mail: using Brevo HTTP API from {}.", fromAddress);
     } else if (useResend()) {
       log.info("Mail: using Resend HTTP API (RESEND_API_KEY is set).");
     } else if (isPlaceholderMailConfig()) {
@@ -103,14 +113,14 @@ public class MailService {
   }
 
   private void assertMailReady() {
-    if (useBrevo() || useResend()) return;
+    if (useSendGrid() || useBrevo() || useResend()) return;
     if (fromAddress == null || fromAddress.isBlank()) {
       throw new BadRequestException(
-          "Email is not configured: set BREVO_API_KEY on Railway, or MAIL_USERNAME for SMTP.");
+          "Email not configured: set SENDGRID_API_KEY on Railway.");
     }
     if (isPlaceholderMailConfig()) {
       throw new BadRequestException(
-          "Email is not configured: set BREVO_API_KEY (recommended) or "
+          "Email not configured: set SENDGRID_API_KEY (recommended) or "
               + "MAIL_USERNAME + MAIL_PASSWORD (Gmail App Password, 16 chars, no spaces).");
     }
   }
@@ -258,13 +268,45 @@ public class MailService {
    * otherwise falls back to JavaMailSender (SMTP — works on localhost, blocked on Railway).
    */
   private void sendHtml(String to, String subject, String html) throws Exception {
-    if (useBrevo()) {
+    if (useSendGrid()) {
+      sendViaSendGrid(to, subject, html);
+    } else if (useBrevo()) {
       sendViaBrevo(to, subject, html);
     } else if (useResend()) {
       sendViaResend(to, subject, html);
     } else {
       sendViaSmtp(to, subject, html);
     }
+  }
+
+  /**
+   * Twilio SendGrid HTTP API — free 100 emails/day, no domain needed,
+   * just verify one sender email at app.sendgrid.com/settings/sender_auth.
+   */
+  private void sendViaSendGrid(String to, String subject, String html) throws Exception {
+    Map<String, Object> body = Map.of(
+        "personalizations", List.of(Map.of("to", List.of(Map.of("email", to)))),
+        "from", Map.of("email", fromAddress.trim(), "name", "Organia"),
+        "subject", subject,
+        "content", List.of(Map.of("type", "text/html", "value", html))
+    );
+
+    String jsonBody = objectMapper.writeValueAsString(body);
+
+    HttpRequest request = HttpRequest.newBuilder()
+        .uri(URI.create("https://api.sendgrid.com/v3/mail/send"))
+        .header("Authorization", "Bearer " + sendGridApiKey)
+        .header("Content-Type", "application/json")
+        .POST(HttpRequest.BodyPublishers.ofString(jsonBody))
+        .build();
+
+    HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+
+    // SendGrid returns 202 Accepted on success (no body)
+    if (response.statusCode() < 200 || response.statusCode() >= 300) {
+      throw new RuntimeException("SendGrid API error " + response.statusCode() + ": " + response.body());
+    }
+    log.debug("SendGrid response {}", response.statusCode());
   }
 
   /**
