@@ -55,7 +55,8 @@ public class JwtAuthFilter extends OncePerRequestFilter {
     if (uri == null) {
       return true;
     }
-    return !uri.startsWith("/api/auth/")
+    return !uri.equals("/")
+        && !uri.startsWith("/api/auth/")
         && !uri.startsWith("/actuator/")
         && !uri.startsWith("/uploads/")
         && !uri.startsWith("/swagger-ui")
