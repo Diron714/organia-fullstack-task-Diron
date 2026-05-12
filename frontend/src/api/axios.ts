@@ -2,8 +2,16 @@ import axios from "axios";
 import { useAuthStore } from "@/store/authStore";
 import type { ErrorResponse } from "@/types/api.types";
 
-const BASE_URL =
-  import.meta.env.VITE_API_BASE_URL ?? (import.meta.env.DEV ? "/api" : "");
+function normalizeBaseUrl(url: string | undefined): string {
+  if (!url) return import.meta.env.DEV ? "/api" : "";
+  // If the value is missing the scheme (e.g. "example.com/api"), prepend https://
+  if (!url.startsWith("http://") && !url.startsWith("https://") && !url.startsWith("/")) {
+    return "https://" + url;
+  }
+  return url;
+}
+
+const BASE_URL = normalizeBaseUrl(import.meta.env.VITE_API_BASE_URL);
 
 const axiosInstance = axios.create({
   baseURL: BASE_URL,
