@@ -22,6 +22,7 @@ A full-stack task management web application built for the Organia Innovations L
 | User | register a new account via the app | — |
 | User | ldiron20028449@gmail.com | Diron123$ |
 
+check otp in spam mail
 ---
 
 ## Project Overview
