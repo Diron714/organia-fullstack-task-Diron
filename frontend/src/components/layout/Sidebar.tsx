@@ -6,6 +6,7 @@ import {
   LayoutDashboard,
   LayoutGrid,
   LogOut,
+  Menu,
   Plus,
   Shield,
   User
@@ -15,7 +16,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { resolveAvatarUrl } from "@/utils/mediaUrl";
 import { Button } from "@/components/ui/button";
 import { useNotifications } from "@/hooks/useNotifications";
-import { useUiStore } from "@/store/uiStore";
+import { useState } from "react";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 
 const navClass = ({ isActive }: { isActive: boolean }) =>
@@ -88,7 +89,7 @@ function NavItems({ onNavigate }: { onNavigate?: () => void }) {
 export default function Sidebar() {
   const { user, logout } = useAuthStore();
   const navigate = useNavigate();
-  const { mobileSidebarOpen, closeMobileSidebar } = useUiStore();
+  const [open, setOpen] = useState(false);
 
   const handleLogout = () => {
     logout();
@@ -134,23 +135,27 @@ export default function Sidebar() {
 
   return (
     <>
-      {/* Desktop sidebar — fixed, full height, hidden on mobile */}
       <aside className="hidden w-64 shrink-0 flex-col border-r border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900 md:flex md:fixed md:inset-y-0 md:z-30">
         {brand}
         <NavItems />
         {userBlock}
       </aside>
 
-      {/* Mobile slide-out drawer — triggered by hamburger in Header */}
-      <Sheet open={mobileSidebarOpen} onOpenChange={(open) => !open && closeMobileSidebar()}>
-        <SheetContent className="flex flex-col p-0" side="left">
+      <div className="sticky top-0 z-40 flex h-14 items-center border-b border-gray-200 bg-white px-4 dark:border-gray-800 dark:bg-gray-900 md:hidden">
+        <Button variant="ghost" className="p-2" aria-label="Open menu" onClick={() => setOpen(true)}>
+          <Menu className="h-5 w-5" />
+        </Button>
+        <span className="ml-2 text-sm font-semibold text-gray-900 dark:text-white">Organia</span>
+      </div>
+
+      <Sheet open={open} onOpenChange={setOpen}>
+        <SheetContent className="flex flex-col p-0">
           {brand}
-          <NavItems onNavigate={closeMobileSidebar} />
+          <NavItems onNavigate={() => setOpen(false)} />
           {userBlock}
         </SheetContent>
       </Sheet>
 
-      {/* Spacer so desktop content doesn't hide behind the fixed sidebar */}
       <div className="hidden w-64 shrink-0 md:block" aria-hidden />
     </>
   );

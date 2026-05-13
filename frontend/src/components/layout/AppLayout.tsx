@@ -18,12 +18,11 @@ export default function AppLayout() {
   }, []);
 
   return (
-    <div className="flex min-h-screen overflow-x-hidden bg-gray-50 dark:bg-gray-950">
+    <div className="flex min-h-screen bg-gray-50 dark:bg-gray-950">
       <Sidebar />
-      {/* min-w-0 prevents flex children from overflowing on mobile */}
-      <div className="flex min-h-screen min-w-0 flex-1 flex-col">
+      <div className="flex min-h-screen flex-1 flex-col md:pl-0">
         <Header />
-        <main className="page-transition flex-1 overflow-y-auto">
+        <main className="page-transition flex-1 overflow-y-auto pt-14 md:pt-0">
           <Outlet />
         </main>
       </div>
