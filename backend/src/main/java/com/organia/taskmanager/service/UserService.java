@@ -186,27 +186,22 @@ public class UserService {
       throw new BadRequestException("Only JPEG, PNG, WebP, or GIF images are allowed");
     }
 
-    Path dir = Paths.get(avatarDir).toAbsolutePath().normalize();
-    Files.createDirectories(dir);
-    Long uid = user.getId();
-    deleteExistingAvatarFiles(dir, uid);
-
+    // Scale + encode to JPEG, then store as a Base64 data URL in the DB.
+    // This avoids relying on Railway's ephemeral filesystem (which is wiped on every redeploy).
     byte[] raw = file.getBytes();
-    String fileName;
     byte[] jpeg = tryEncodeScaledJpeg(raw);
+
+    String dataUrl;
     if (jpeg != null) {
-      fileName = uid + ".jpg";
-      Files.write(dir.resolve(fileName), jpeg);
+      dataUrl = "data:image/jpeg;base64," + java.util.Base64.getEncoder().encodeToString(jpeg);
     } else {
-      String ext = extensionForMime(ct);
-      fileName = uid + "." + ext;
-      Files.write(dir.resolve(fileName), raw);
+      // Fallback: store original bytes with detected mime type
+      dataUrl = "data:" + ct + ";base64," + java.util.Base64.getEncoder().encodeToString(raw);
     }
 
-    String publicPath = "/uploads/avatars/" + fileName;
-    user.setAvatarUrl(publicPath);
+    user.setAvatarUrl(dataUrl);
     userRepository.save(user);
-    return publicPath;
+    return dataUrl;
   }
 
   private static void deleteExistingAvatarFiles(Path dir, long userId) throws IOException {
