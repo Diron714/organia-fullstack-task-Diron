@@ -1,5 +1,5 @@
 import { matchPath, useLocation, useSearchParams } from "react-router-dom";
-import { Search } from "lucide-react";
+import { Menu, Search } from "lucide-react";
 import { useAuthStore } from "@/store/authStore";
 import SearchBar from "@/components/common/SearchBar";
 import { useSearchStore } from "@/store/searchStore";
@@ -7,6 +7,7 @@ import ThemeToggle from "@/components/layout/ThemeToggle";
 import NotificationBell from "@/components/layout/NotificationBell";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { resolveAvatarUrl } from "@/utils/mediaUrl";
+import { useUiStore } from "@/store/uiStore";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -34,6 +35,7 @@ export default function Header() {
   const [searchParams, setSearchParams] = useSearchParams();
   const { user, logout } = useAuthStore();
   const toggleSearch = useSearchStore((s) => s.toggle);
+  const openMobileSidebar = useUiStore((s) => s.openMobileSidebar);
   const navigate = useNavigate();
 
   const matched = ROUTE_TITLES.find((r) => matchPath({ path: r.path, end: true }, location.pathname));
@@ -54,7 +56,16 @@ export default function Header() {
   };
 
   return (
-    <header className="sticky top-0 z-20 flex h-16 shrink-0 items-center gap-4 border-b border-gray-200 bg-white px-4 dark:border-gray-800 dark:bg-gray-900 md:px-6">
+    <header className="sticky top-0 z-20 flex h-16 shrink-0 items-center gap-2 border-b border-gray-200 bg-white px-3 dark:border-gray-800 dark:bg-gray-900 md:gap-4 md:px-6">
+      {/* Hamburger — mobile only, opens the sidebar Sheet */}
+      <button
+        type="button"
+        onClick={openMobileSidebar}
+        className="rounded-lg p-2 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 md:hidden"
+        aria-label="Open menu"
+      >
+        <Menu className="h-5 w-5" />
+      </button>
       <h1 className="min-w-0 flex-1 truncate text-lg font-semibold text-gray-900 dark:text-white md:text-xl">
         {pageTitle}
       </h1>
