@@ -106,12 +106,13 @@ public class UserService {
       if (u.isEmpty()) {
         user.setAvatarUrl(null);
       } else {
-        if (u.startsWith("data:")) {
-          throw new BadRequestException(
-              "Use Upload photo for images. The URL field accepts links only, not embedded image data.");
-        }
-        if (u.length() > 2048) {
+        // data: URLs are produced by our own uploadAvatar() endpoint — allow them.
+        // Regular URLs are capped at 2048 chars; Base64 images can be larger (up to 2MB).
+        if (!u.startsWith("data:") && u.length() > 2048) {
           throw new BadRequestException("Avatar URL is too long (maximum 2048 characters).");
+        }
+        if (u.startsWith("data:") && u.length() > 2 * 1024 * 1024) {
+          throw new BadRequestException("Image data is too large. Please use Upload photo instead.");
         }
         user.setAvatarUrl(u);
       }
