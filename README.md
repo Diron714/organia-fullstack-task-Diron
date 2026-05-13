@@ -20,6 +20,7 @@ A full-stack task management web application built for the Organia Innovations L
 |------|-------|----------|
 | Admin | admin@organia.com | Organia@Admin1 |
 | User | register a new account via the app | — |
+| User | ldiron20028449@gmail.com | Diron123$ |
 
 ---
 
